@@ -10,7 +10,8 @@ let package = Package(
         .executable(name: "gatekeepr", targets: ["gatekeepr"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
+        // 1.8 needs Swift 6 tools (Xcode 16), which macOS 13 can't run.
+        .package(url: "https://github.com/apple/swift-argument-parser", "1.5.0"..<"1.8.0"),
     ],
     targets: [
         // The system zlib, used to read the rotated driver-*.log.gz files.
