@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""Sanitize Appgate driver logs so they can be shared publicly.
+
+Replaces hostnames, IP addresses (v4 and v6), MAC addresses, UUIDs, e-mail
+addresses, home-directory user names and token-like strings with stable fake
+values. "Stable" means the same real value always maps to the same fake value
+within one run (and across files in that run), so the structure of the log is
+kept: you can still see that two lines talk about the same gateway.
+
+Timestamps, log levels, JSON-RPC method names and gateway ids such as
+`sdp-gw1-aws` are left alone, because gatekeepr needs them to work out sessions.
+
+Usage:
+  scripts/sanitize-log /var/log/appgate/driver.log > driver.sanitized.log
+  scripts/sanitize-log < driver.log > driver.sanitized.log
+  scripts/sanitize-log --out-dir OUT /var/log/appgate/driver*.log*
+  scripts/sanitize-log --check Tests/GatekeeprCoreTests/Fixtures
+
+Inputs ending in .gz are decompressed. With --out-dir, each input is written to
+OUT/<same name>, re-compressed if it was a .gz. --check doesn't change anything:
+it reports values that still look real and exits 1 if it finds any.
+
+Always read the output before sharing it. This is a best-effort tool.
+"""
+
+import argparse
+import gzip
+import ipaddress
+import os
+import re
+import sys
+
+# Fake values come from ranges reserved for documentation and testing, so they
+# can never collide with something real.
+FAKE_IPV4_NET = ipaddress.ip_network("198.18.0.0/15")  # RFC 2544
+FAKE_IPV6_NET = ipaddress.ip_network("2001:db8::/32")  # RFC 3849
+FAKE_UUID_PREFIX = "00000000-0000-4000-8000-"
+FAKE_HOST_SUFFIX = ".example"  # RFC 2606
+FAKE_MAIL_DOMAIN = "@mail.example"
+
+SECRET_KEYS = (
+    "claimsToken|entitlementToken|untrustedClaimsToken|clientp12|cacert|key|"
+    "password|secret|token|accessToken|refreshToken|idToken"
+)
+SECRET_FIELD = re.compile(r'"(%s)"(\s*:\s*)"([^"]*)"' % SECRET_KEYS)
+JWT = re.compile(r"\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}")
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+UUID = re.compile(r"(?<![0-9A-Fa-f])[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?![0-9A-Fa-f])")
+# netstat drops leading zeros ("1:0:5e:0:0:fb") and sometimes uses dots instead of colons.
+MAC_COLON = re.compile(r"(?<![\w:])(?:[0-9A-Fa-f]{1,2}:){5}[0-9A-Fa-f]{1,2}(?![\w:])")
+MAC_DOTTED = re.compile(r"(?<![\w.])(?:[0-9A-Fa-f]{1,2}\.){5}[0-9A-Fa-f]{1,2}(?![\w.])")
+
+# A hostname is either anything ending in a well-known TLD, or a name with at
+# least two dots ending in a letters-only label that isn't a file extension.
+KNOWN_TLDS = (
+    "com|net|org|io|dev|tech|cloud|ai|co|me|info|biz|xyz|online|site|"
+    "internal|local|lan|corp|home|intranet|localdomain|"
+    "se|no|dk|fi|is|uk|ie|de|fr|nl|be|lu|ch|at|es|pt|it|pl|cz|sk|hu|ro|ee|lv|lt|"
+    "eu|us|ca|mx|br|ar|cl|au|nz|jp|kr|cn|hk|tw|sg|in|il|ae|za|ma|ru|ua|tr|gr"
+)
+NOT_TLDS = {
+    "log", "gz", "txt", "json", "plist", "sh", "py", "swift", "socket", "dylib",
+    "so", "zip", "tar", "pem", "p12", "crt", "key", "conf", "cfg", "yaml", "yml",
+    "xml", "html", "js", "md", "pid", "lock", "db", "sqlite", "framework", "bundle",
+    "kext", "systemextension", "app", "example", "invalid", "test", "localhost",
+}
+HOSTNAME = re.compile(
+    r"(?<![\w.@-])((?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+([A-Za-z][A-Za-z0-9-]*[A-Za-z]))(?![\w-]|\.[A-Za-z0-9])"
+)
+KNOWN_TLD = re.compile(r"(?:%s)" % KNOWN_TLDS, re.IGNORECASE)
+
+IPV6_CANDIDATE = re.compile(r"(?<![\w:.%])([0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?:\.\d{1,3}){0,3})((?:%[\w.]+)?(?:/\d{1,3})?)(?![\w:])")
+IPV4 = re.compile(r"(?<![\w.])(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?![\w]|\.\d)")
+# netstat abbreviates networks ("10.199.200/24", "192.168.1").
+IPV4_PARTIAL_CIDR = re.compile(r"(?<![\w.])(\d{1,3}\.\d{1,3}\.\d{1,3})(?=/\d{1,2}\b)")
+IPV4_PARTIAL_NETSTAT = re.compile(r"(?<=\s)(\d{1,3}\.\d{1,3}\.\d{1,3})(?=\s)")
+
+HEX_TOKEN = re.compile(r"(?<![0-9A-Za-z])(?=[0-9A-Fa-f]*[A-Fa-f])(?=[0-9A-Fa-f]*\d)[0-9A-Fa-f]{16,}(?![0-9A-Za-z])")
+OPAQUE_TOKEN = re.compile(r"(?<![\w+/=-])(?=[\w+/-]*[A-Z])(?=[\w+/-]*[a-z])(?=[\w+/-]*\d)[\w+/-]{32,}={0,2}(?![\w+/=-])")
+HOME_DIR = re.compile(r"/Users/(?!Shared\b|user\b)[^/\s'\"]+")
+
+
+def is_hostname(name, tld):
+    if name.lower().endswith(FAKE_HOST_SUFFIX) or MAC_DOTTED.fullmatch(name):
+        return False
+    if KNOWN_TLD.fullmatch(tld):
+        return True
+    return name.count(".") >= 2 and tld.isalpha() and tld.lower() not in NOT_TLDS
+
+
+def mac_is_preserved(value):
+    """Fake, all-zero, broadcast and multicast MACs (odd first octet) are generic."""
+    octets = [int(part, 16) for part in re.split(r"[:.]", value)]
+    return octets[:4] == [2, 0, 0, 0] or not any(octets) or octets[0] & 1 == 1
+
+
+def ipv4_is_preserved(addr):
+    if addr in FAKE_IPV4_NET or addr.is_loopback or addr.is_unspecified or addr.is_multicast:
+        return True
+    value = int(addr)
+    # Broadcast and netmasks (contiguous ones from the top) say nothing about anyone.
+    inverted = (~value) & 0xFFFFFFFF
+    return value >> 24 == 0xFF and (inverted & (inverted + 1)) == 0
+
+
+def ipv6_is_preserved(addr):
+    return addr in FAKE_IPV6_NET or addr.is_loopback or addr.is_unspecified or addr.is_multicast
+
+
+def octets_valid(text):
+    return all(0 <= int(part) <= 255 for part in text.split("."))
+
+
+def parse_ipv6(text):
+    try:
+        return ipaddress.IPv6Address(text)
+    except ValueError:
+        return None
+
+
+class Sanitizer:
+    def __init__(self):
+        self.maps = {}
+
+    def fake(self, kind, real, make):
+        table = self.maps.setdefault(kind, {})
+        if real not in table:
+            table[real] = make(len(table) + 1)
+        return table[real]
+
+    def line(self, text):
+        text = SECRET_FIELD.sub(lambda m: '"%s"%s"%s"' % (m.group(1), m.group(2), "*" if m.group(3) else ""), text)
+        text = JWT.sub(lambda m: self.fake("jwt", m.group(0), lambda n: "eyJfake-jwt-%d" % n), text)
+        text = EMAIL.sub(self._email, text)
+        text = UUID.sub(self._uuid, text)
+        text = MAC_COLON.sub(self._mac_colon, text)
+        text = MAC_DOTTED.sub(self._mac_dotted, text)
+        text = HOSTNAME.sub(self._hostname, text)
+        text = IPV6_CANDIDATE.sub(self._ipv6, text)
+        text = IPV4.sub(self._ipv4, text)
+        text = IPV4_PARTIAL_CIDR.sub(self._ipv4_partial, text)
+        if "[netstat" in text:
+            text = IPV4_PARTIAL_NETSTAT.sub(self._ipv4_partial, text)
+        text = HEX_TOKEN.sub(self._hex, text)
+        text = OPAQUE_TOKEN.sub(lambda m: self.fake("token", m.group(0), lambda n: "token%d" % n), text)
+        text = HOME_DIR.sub("/Users/user", text)
+        return text
+
+    def _email(self, m):
+        if m.group(0).lower().endswith(FAKE_MAIL_DOMAIN):
+            return m.group(0)
+        return self.fake("email", m.group(0).lower(), lambda n: "user%d%s" % (n, FAKE_MAIL_DOMAIN))
+
+    def _uuid(self, m):
+        value = m.group(0).lower()
+        if value.startswith(FAKE_UUID_PREFIX):
+            return value
+        return self.fake("uuid", value, lambda n: "%s%012x" % (FAKE_UUID_PREFIX, n))
+
+    def _mac_colon(self, m):
+        if mac_is_preserved(m.group(0)):
+            return m.group(0)
+        return ":".join("%02x" % byte for byte in self._fake_mac(m.group(0)))
+
+    def _mac_dotted(self, m):
+        if mac_is_preserved(m.group(0)):
+            return m.group(0)
+        return ".".join("%x" % byte for byte in self._fake_mac(m.group(0)))
+
+    def _fake_mac(self, value):
+        # Locally administered addresses, keyed the same way for both notations.
+        normalized = ":".join("%02x" % int(part, 16) for part in re.split(r"[:.]", value))
+        return self.fake("mac", normalized, lambda n: (0x02, 0, 0, 0, n >> 8 & 0xFF, n & 0xFF))
+
+    def _hostname(self, m):
+        name, tld = m.group(1), m.group(2)
+        if not is_hostname(name, tld):
+            return name
+        return self.fake("host", name.lower(), lambda n: "host%d%s" % (n, FAKE_HOST_SUFFIX))
+
+    def _ipv6(self, m):
+        addr = parse_ipv6(m.group(1))
+        if addr is None or ipv6_is_preserved(addr):
+            return m.group(0)
+        fake = self.fake("ipv6", addr, lambda n: str(FAKE_IPV6_NET.network_address + n))
+        return fake + m.group(2)
+
+    def _ipv4(self, m):
+        if not octets_valid(m.group(1)):
+            return m.group(0)
+        addr = ipaddress.IPv4Address(m.group(1))
+        if ipv4_is_preserved(addr):
+            return m.group(0)
+        return self.fake("ipv4", addr, lambda n: str(FAKE_IPV4_NET.network_address + n))
+
+    def _ipv4_partial(self, m):
+        value = m.group(1)
+        if not octets_valid(value) or value.startswith(("198.18.", "198.19.", "127.", "224.", "255.")):
+            return value
+        return self.fake("ipv4-partial", value, lambda n: "198.19.%d" % (n % 256))
+
+    def _hex(self, m):
+        value = m.group(0)
+        return self.fake("hex", value.lower(), lambda n: "%0*x" % (len(value), n))
+
+
+def find_leaks(text):
+    """Values in a line that still look real. Used by --check."""
+    leaks = []
+    for m in SECRET_FIELD.finditer(text):
+        if m.group(3) not in ("", "*"):
+            leaks.append(("secret field", m.group(0)))
+    for m in JWT.finditer(text):
+        leaks.append(("jwt", m.group(0)))
+    for m in EMAIL.finditer(text):
+        if not m.group(0).lower().endswith(FAKE_MAIL_DOMAIN):
+            leaks.append(("email", m.group(0)))
+    for m in UUID.finditer(text):
+        if not m.group(0).lower().startswith(FAKE_UUID_PREFIX):
+            leaks.append(("uuid", m.group(0)))
+    for m in list(MAC_COLON.finditer(text)) + list(MAC_DOTTED.finditer(text)):
+        if not mac_is_preserved(m.group(0)):
+            leaks.append(("mac", m.group(0)))
+    for m in HOSTNAME.finditer(text):
+        if is_hostname(m.group(1), m.group(2)):
+            leaks.append(("hostname", m.group(1)))
+    for m in IPV6_CANDIDATE.finditer(text):
+        addr = parse_ipv6(m.group(1))
+        if addr is not None and not ipv6_is_preserved(addr):
+            leaks.append(("ipv6", m.group(1)))
+    for m in IPV4.finditer(text):
+        if octets_valid(m.group(1)) and not ipv4_is_preserved(ipaddress.IPv4Address(m.group(1))):
+            leaks.append(("ipv4", m.group(1)))
+    partials = list(IPV4_PARTIAL_CIDR.finditer(text))
+    if "[netstat" in text:
+        partials += IPV4_PARTIAL_NETSTAT.finditer(text)
+    for m in partials:
+        value = m.group(1)
+        if octets_valid(value) and not value.startswith(("198.18.", "198.19.", "127.", "224.", "255.")):
+            leaks.append(("ipv4 prefix", value))
+    for m in HEX_TOKEN.finditer(text):
+        if m.group(0).lstrip("0") and len(m.group(0).lstrip("0")) > 6:
+            leaks.append(("hex token", m.group(0)))
+    for m in OPAQUE_TOKEN.finditer(text):
+        leaks.append(("token", m.group(0)))
+    for m in HOME_DIR.finditer(text):
+        leaks.append(("home directory", m.group(0)))
+    return leaks
+
+
+def open_text(path):
+    if path.endswith(".gz"):
+        return gzip.open(path, "rt", encoding="utf-8", errors="replace", newline="")
+    return open(path, "r", encoding="utf-8", errors="replace", newline="")
+
+
+def walk(paths):
+    for path in paths:
+        if os.path.isdir(path):
+            for root, dirs, files in os.walk(path):
+                dirs.sort()
+                for name in sorted(files):
+                    if name.endswith((".log", ".gz")):
+                        yield os.path.join(root, name)
+        else:
+            yield path
+
+
+def check(paths):
+    found = 0
+    for path in walk(paths):
+        with open_text(path) as handle:
+            for number, text in enumerate(handle, 1):
+                for kind, value in find_leaks(text):
+                    found += 1
+                    print("%s:%d: %s: %s" % (path, number, kind, value[:80]))
+    if found:
+        print("%d value(s) look unsanitized" % found, file=sys.stderr)
+        return 1
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Replace hostnames, IPs, MACs, UUIDs, e-mails and tokens in Appgate logs with stable fake values.",
+        epilog="Always read the output before you share it.",
+    )
+    parser.add_argument("files", nargs="*", help="log files (.log or .log.gz); reads stdin when empty")
+    parser.add_argument("--out-dir", help="write each input to this directory under its own name instead of stdout")
+    parser.add_argument("--check", action="store_true", help="report values that still look real and exit 1 if there are any")
+    args = parser.parse_args()
+
+    if args.check:
+        if not args.files:
+            parser.error("--check needs at least one file or directory")
+        return check(args.files)
+
+    sanitizer = Sanitizer()
+    if not args.files:
+        for text in sys.stdin:
+            sys.stdout.write(sanitizer.line(text))
+        return 0
+
+    for path in args.files:
+        with open_text(path) as source:
+            if args.out_dir:
+                os.makedirs(args.out_dir, exist_ok=True)
+                target = os.path.join(args.out_dir, os.path.basename(path))
+                if path.endswith(".gz"):
+                    # mtime=0 keeps re-generated .gz files byte-identical.
+                    sink = gzip.GzipFile(target, "wb", mtime=0)
+                else:
+                    sink = open(target, "wb")
+                with sink:
+                    for text in source:
+                        sink.write(sanitizer.line(text).encode("utf-8"))
+            else:
+                for text in source:
+                    sys.stdout.write(sanitizer.line(text))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
