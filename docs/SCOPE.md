@@ -8,10 +8,11 @@ Claude Code goes through Vend's gateway, which sits behind Appgate. Appgate does
 ## How detection works
 There's no API for this. gatekeepr works it out from `/var/log/appgate/driver.log` and the rotated `driver-*.log.gz` files, which any user can read. It needs no root and makes no network calls.
 
-- **Real sign-in:** a `"method":"login"` request that comes right after a client-side close (`Closing *:0 (Client…)`), or the first `login` in the log history.
-- **Reconnect (ignored):** a `login` that follows `Closing … (Disconnected by gateway)`. This is the same session moving to a different gateway node.
-- **Token refresh (ignored):** `update-tokens` calls don't extend the session.
-- **Session length:** learned from past sessions as the time from sign-in to the first `token-renewal-notification`, plus `timeLeft` (300 s). Defaults to 24 h when there's no history. All 7 sessions from 5–11 Oct 2026 measured exactly 24 h.
+- **Real sign-in:** a `"method":"login"` request that comes right after a client-side close (`Closing *:<port> (Client…)` or `Client closed control connection`), or the first `login` in the log history. Also the first login after the driver restarts (`Starting event loop`, e.g. after a reboot on 7 Oct 2026 there was no client close before the next sign-in) or after a new `Got control connection`.
+- **Reconnect (ignored):** a `login` that follows `Closing … (Disconnected by gateway)`, `Dead connection detected`, an IP address change or a connect timeout. This is the same session moving to a different gateway node.
+- **Token refresh (ignored):** `update-tokens` calls don't extend the session, nor does the `deploy` + `update-tokens` that follows a `token-revocation`.
+- **Renewal in place:** a `deploy` (followed by `update-tokens`, with no close or login) while `token-renewal-notification`s are counting down is the user renewing from the warning. It starts a new full-length session. Seen three times in Sept 2026: each time the next notification came exactly 23h55m after the `deploy`.
+- **Session length:** learned from past sessions as the time from sign-in to the first `token-renewal-notification`, plus `timeLeft` (300 s). Defaults to 24 h when there's no history. All 7 sessions from 5–11 Oct 2026 measured exactly 24 h, and so did all 17 measurable sessions from 10 Sept to 11 Oct.
 - **Live fallback:** an unexpected `token-renewal-notification` means expiry is `timeLeft` seconds away, whatever the timing model predicted.
 
 These are observations from Appgate client 6.5.3 talking to gateway 6.5.6. They aren't documented anywhere, so the parser has to fail loudly rather than guess.
