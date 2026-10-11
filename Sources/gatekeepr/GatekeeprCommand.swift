@@ -50,7 +50,7 @@ struct WarnThreshold: ExpressibleByArgument {
 struct StatusCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "status",
-        abstract: "Show the current session: sign-in time, expiry and time left. This is the default."
+        abstract: "Show the current session: sign-in time, expiry and time left."
     )
 
     @OptionGroup var options: LogOptions
@@ -116,7 +116,7 @@ func fail(_ error: Error, json: Bool, short: Bool) throws -> Never {
     FileHandle.standardError.write(Data("gatekeepr: \(message)\n".utf8))
     if json {
         let payload: [String: Any] = ["state": "error", "exitCode": 3, "error": message]
-        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) {
+        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) {
             print(String(decoding: data, as: UTF8.self))
         }
     } else if short {

@@ -42,7 +42,7 @@ public enum LogParser {
         unrecognized: (String) -> GatekeeprError
     ) throws -> LogEvent.Kind? {
         if message.hasPrefix(requestPrefix),
-           message.contains("\"login\"") || message.contains("\"deploy\"") {
+           message.containsBytes("\"login\"") || message.containsBytes("\"deploy\"") {
             guard let request = payload(of: message, after: requestPrefix) else {
                 throw unrecognized("a login or deploy request isn't valid JSON")
             }
@@ -63,7 +63,7 @@ public enum LogParser {
             return nil
         }
 
-        if message.contains("token-renewal-notification") {
+        if message.containsBytes("token-renewal-notification") {
             guard let reply = payload(of: message, after: replyPrefix),
                   let params = reply["params"] as? [String: Any],
                   let inner = params["message"] as? [String: Any],
@@ -77,7 +77,7 @@ public enum LogParser {
             return .renewalNotification(timeLeft: timeLeft.doubleValue)
         }
 
-        if message.contains("Closing *:") {
+        if message.containsBytes("Closing *:") {
             guard let reason = closeReason(message) else {
                 throw unrecognized("a connection close doesn't look like `[SITE] [gateway] Closing *:PORT (reason)`")
             }
@@ -197,5 +197,16 @@ struct Envelope {
         let dayOfYear = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1
         let dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
         return era * 146_097 + dayOfEra - 719_468
+    }
+}
+
+extension Substring {
+    /// Byte-wise search. The parser runs this on every line of a month of
+    /// logs, where it is several times faster than `contains`.
+    func containsBytes(_ needle: StaticString) -> Bool {
+        let found = utf8.withContiguousStorageIfAvailable { haystack in
+            memmem(haystack.baseAddress, haystack.count, needle.utf8Start, needle.utf8CodeUnitCount) != nil
+        }
+        return found ?? contains(needle.description)
     }
 }
