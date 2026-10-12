@@ -14,7 +14,7 @@ struct GatekeeprCommand: ParsableCommand {
         Exit codes: 0 ok, 1 within the warn window, 2 expired or not signed in, \
         3 logs unreadable or in a format gatekeepr doesn't know.
         """,
-        version: "0.1.0",
+        version: Gatekeepr.version,
         subcommands: [StatusCommand.self, HistoryCommand.self],
         defaultSubcommand: StatusCommand.self
     )
@@ -120,7 +120,7 @@ func fail(_ error: Error, json: Bool, short: Bool) throws -> Never {
             print(String(decoding: data, as: UTF8.self))
         }
     } else if short {
-        print("error")
+        print(StatusText.shortError)
     }
     throw ExitCode(3)
 }

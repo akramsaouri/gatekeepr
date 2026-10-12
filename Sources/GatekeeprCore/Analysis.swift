@@ -90,6 +90,20 @@ public struct Analysis: Sendable {
         sessionLength = SessionLength.learn(from: sessions)
     }
 
+    private init(now: Date, copying analysis: Analysis) {
+        self.now = now
+        logFiles = analysis.logFiles
+        sessions = analysis.sessions
+        sessionLength = analysis.sessionLength
+    }
+
+    /// The same history looked at from a later moment, without reading the logs
+    /// again. Only valid while the logs haven't changed: the menu bar app uses it
+    /// to tick the countdown and re-reads the logs whenever they change.
+    public func at(_ now: Date) -> Analysis {
+        Analysis(now: now, copying: self)
+    }
+
     /// A renewal notice in the session wins over the timing model.
     public func expiry(of session: Session) -> Expiry {
         if let notice = session.lastRenewalNotice {
