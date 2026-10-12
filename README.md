@@ -66,7 +66,13 @@ You need Go 1.26 or later. Either install it straight from the module:
 go install github.com/akramsaouri/gatekeepr@latest
 ```
 
-which puts `gatekeepr` in `$(go env GOPATH)/bin`, or clone and build:
+which puts `gatekeepr` in `$(go env GOPATH)/bin` (usually `~/go/bin`). If your shell then says `command not found: gatekeepr`, that directory isn't on your `PATH` yet:
+
+```sh
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.zshrc && source ~/.zshrc
+```
+
+Or clone and build:
 
 ```sh
 git clone https://github.com/akramsaouri/gatekeepr.git
