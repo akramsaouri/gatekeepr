@@ -93,9 +93,9 @@ func workingDirectory() string {
 // Files lists the driver logs, oldest first: rotated files by date, then the
 // live driver.log.
 func (d LogDirectory) Files() ([]LogFile, error) {
-	entries, err := os.ReadDir(d.Path)
+	entries, err := d.entries()
 	if err != nil {
-		return nil, &Error{Kind: LogDirectoryUnreadable, Path: d.displayPath(), Reason: directoryReason(err, d.displayPath())}
+		return nil, err
 	}
 	var files []LogFile
 	for _, entry := range entries {
@@ -138,14 +138,27 @@ func (d LogDirectory) Text(file LogFile) (string, error) {
 	return repairUTF8(data), nil
 }
 
-// directoryReason words a failure to list the log directory the way macOS
-// Foundation did for the Swift version: its own sentence for a missing
-// folder, the strerror(3) text for everything else.
-func directoryReason(err error, path string) string {
-	if errors.Is(err, fs.ErrNotExist) {
-		return "The folder “" + filepath.Base(path) + "” doesn’t exist."
+// entries lists the directory, failing with the wording macOS Foundation used
+// for the Swift version: its own sentence when the path can't be looked up
+// at all (missing, a loop, a parent that isn't a directory or can't be
+// searched), and the strerror(3) text otherwise. Checking first also means a
+// FIFO or device is never opened, which could block.
+func (d LogDirectory) entries() ([]fs.DirEntry, error) {
+	fail := func(reason string) error {
+		return &Error{Kind: LogDirectoryUnreadable, Path: d.displayPath(), Reason: reason}
 	}
-	return errnoText(err)
+	info, err := os.Stat(d.Path)
+	if err != nil {
+		return nil, fail("The folder “" + filepath.Base(d.displayPath()) + "” doesn’t exist.")
+	}
+	if !info.IsDir() {
+		return nil, fail(errnoText(syscall.ENOTDIR))
+	}
+	entries, err := os.ReadDir(d.Path)
+	if err != nil {
+		return nil, fail(errnoText(err))
+	}
+	return entries, nil
 }
 
 // errnoText is strerror(3) for the error's errno. Go's errno strings are

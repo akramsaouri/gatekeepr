@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -50,9 +51,22 @@ func TestDirectoryErrorsReadLikeTheSwiftVersion(t *testing.T) {
 	if err := os.WriteFile(file, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	fifo := filepath.Join(dir, "fifo")
+	if err := syscall.Mkfifo(fifo, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loop := filepath.Join(dir, "loop")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Fatal(err)
+	}
 	for path, want := range map[string]string{
 		filepath.Join(dir, "does", "not", "exist"): "can't read the log directory " + dir + "/does/not/exist: The folder “exist” doesn’t exist.",
 		file: "can't read the log directory " + file + ": Not a directory",
+		// A parent that isn't a directory reads as missing, as Foundation put it.
+		filepath.Join(file, "sub"): "can't read the log directory " + file + "/sub: The folder “sub” doesn’t exist.",
+		loop:                       "can't read the log directory " + loop + ": The folder “loop” doesn’t exist.",
+		// Never opened, so it can't block.
+		fifo: "can't read the log directory " + fifo + ": Not a directory",
 	} {
 		_, err := LogDirectory{Path: path}.Files()
 		if err == nil || err.Error() != want {
@@ -175,6 +189,32 @@ func TestNotGzipFails(t *testing.T) {
 	_, err := gunzip([]byte("[2026-10-10T23:24:41.741Z] Info : hello\n"))
 	if err == nil || err.Error() != "gzip data is corrupt (incorrect header check)" {
 		t.Errorf("got %v", err)
+	}
+}
+
+func TestGzipErrorsReadLikeZlib(t *testing.T) {
+	data := readFixture(t, "rotation/driver-2026-10-07.log.gz")
+	change := func(i int, b byte) []byte {
+		changed := bytes.Clone(data)
+		changed[(i+len(data))%len(data)] = b
+		return changed
+	}
+	for _, c := range []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"one byte", data[:1], "gzip data is truncated"},
+		{"two wrong bytes", []byte("no"), "gzip data is corrupt (incorrect header check)"},
+		{"garbage after a member", append(bytes.Clone(data), "garbage"...), "gzip data is corrupt (incorrect header check)"},
+		{"method", change(2, 7), "gzip data is corrupt (unknown compression method)"},
+		{"reserved flags", change(3, data[3]|0x20), "gzip data is corrupt (unknown header flags set)"},
+		{"CRC", change(-6, data[len(data)-6]^0xFF), "gzip data is corrupt (incorrect data check)"},
+		{"length", change(-1, data[len(data)-1]^0xFF), "gzip data is corrupt (incorrect length check)"},
+	} {
+		if _, err := gunzip(c.data); err == nil || err.Error() != c.want {
+			t.Errorf("%s: got %v, want %s", c.name, err, c.want)
+		}
 	}
 }
 
