@@ -52,6 +52,11 @@ Deliberate or unavoidable differences, all in error paths:
 - **Homebrew: not planned for now.**
 - **Go versions:** `go.mod` says the oldest Go that builds it (1.26, the oldest Go release still supported); `.go-version` pins the Go releases are built with. CI tests both.
 - **Releases** are cut by pushing a `v*` tag: `.github/workflows/release.yml` tests, builds, checks, uploads to a draft and only then publishes. If a run fails, the tag and release are deleted before retrying.
+- **Releasing, step by step:**
+  1. Bump `const Version` in `internal/cli/cli.go` to the new version (no `v`) and merge it to `main`. `check-release` fails the release if `--version` doesn't match the tag.
+  2. Optional: add `.github/release-notes/v<version>.md`. It goes at the top of the release notes, above the list of commits since the previous tag.
+  3. Tag `main` and push: `git tag v<version> && git push origin v<version>`.
+  4. Docs-only changes don't get a release.
 
 ## Out of scope
 - The menu bar app (removed in v0.3.0; see above)
