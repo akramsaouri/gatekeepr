@@ -19,6 +19,8 @@ public struct MenuState: Equatable {
     }
 
     public let tone: Tone
+    /// The ring next to the menu bar text, and its colour.
+    public let glyph: StatusGlyph
     /// The menu bar text: exactly what `gatekeepr --short` prints.
     public let title: String
     /// What VoiceOver reads for the menu bar item.
@@ -42,8 +44,10 @@ public struct MenuState: Equatable {
         heading: "Reading the Appgate logs…", details: [], history: []
     )
 
-    init(tone: Tone, title: String, accessibilityLabel: String, heading: String, details: [String], history: [String]) {
+    init(tone: Tone, title: String, accessibilityLabel: String, heading: String, details: [String], history: [String],
+         progress: Double? = nil) {
         self.tone = tone
+        glyph = StatusGlyph(tone: tone, progress: progress)
         self.title = title
         self.accessibilityLabel = accessibilityLabel
         self.heading = heading
@@ -71,10 +75,13 @@ public struct MenuState: Equatable {
             tone = .signedOut
             accessibilityLabel = "Not signed in to Appgate"
         }
+        glyph = StatusGlyph(tone: tone, progress: StatusGlyph.progress(timeLeft: status.timeLeft,
+                                                                       sessionLength: status.sessionLength.duration))
     }
 
     public init(error: Error) {
         tone = .error
+        glyph = StatusGlyph(tone: .error, progress: nil)
         title = StatusText.shortError
         accessibilityLabel = "Gatekeepr can't read the Appgate logs"
         heading = "Can't tell when the Appgate session ends"

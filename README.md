@@ -63,7 +63,7 @@ See [Menu bar app](#menu-bar-app) for what it does.
 ### CLI
 
 ```sh
-version=0.2.0
+version=0.2.1
 base=https://github.com/akramsaouri/gatekeepr/releases/download/v$version
 curl -fLO "$base/gatekeepr-$version-macos-universal.tar.gz"
 curl -fLO "$base/SHA256SUMS"
@@ -174,15 +174,19 @@ Sun 11 Oct 01:24  sign-in  -                 active       -       1
 
 ## Menu bar app
 
-`Gatekeepr.app` puts the time left in the menu bar, using the same text as
-`gatekeepr --short`:
+`Gatekeepr.app` puts a ring and the time left in the menu bar, using the same
+text as `gatekeepr --short`. The ring is the share of the session that's left
+(time left over the learned session length): full right after you sign in, it
+empties clockwise from 12 o'clock over a faint full circle.
+
+![The menu bar item in each state, on light and dark menu bars](docs/menu-bar-states.png)
 
 | Menu bar | Meaning |
 |---|---|
-| clock `6h08m` | Signed in, more than the warn threshold left |
-| orange hourglass `25m` | Signed in, inside the warn window |
-| red `expired` | The session ran out |
-| `signed out` / `no session` | Not signed in |
+| ring `6h08m` | Signed in, more than the warn threshold left. In the menu bar's own colour |
+| orange ring `25m` | Signed in, inside the warn window |
+| red ✕ in a ring, `expired` | The session ran out |
+| dash in an empty ring, `signed out` / `no session` | Not signed in |
 | red triangle `error` | The logs can't be read, or don't look the way gatekeepr expects (the CLI's exit code 3). The menu shows why. It never falls back to a guess |
 
 The menu shows the sign-in time, the expiry, the time left and how many past
@@ -200,7 +204,7 @@ default 30 minutes, remembered), **Launch at Login** and **Quit**.
 - **Live updates.** The app watches `/var/log/appgate` for changes (kqueue, no
   polling), so signing in, signing out or renewing shows up within a second. It
   follows `driver.log` through Appgate's nightly log rotation. The only timer
-  ticks the countdown once a minute.
+  ticks the countdown, and redraws the ring, once a minute.
 - **Launch at Login** uses `SMAppService`, so the app shows up under System
   Settings › General › Login Items. Move `Gatekeepr.app` to Applications first.
 - **No Dock icon** (`LSUIElement`).
@@ -290,7 +294,7 @@ scripts/build-app
 |---|---|
 | `GatekeeprCore` | Reads the logs, splits them into sessions, learns the length, computes expiry. Also the wording both front ends share (`StatusText`) |
 | `gatekeepr` | The CLI |
-| `GatekeeprMenuBar` | The menu bar app's logic: what the menu shows in each state, notification bookkeeping, settings and the log watcher. No UI, unit-tested |
+| `GatekeeprMenuBar` | The menu bar app's logic: what the menu and the ring show in each state, notification bookkeeping, settings and the log watcher. No UI, unit-tested |
 | `GatekeeprApp` | The SwiftUI `MenuBarExtra` and the system glue (notifications, launch at login, opening Appgate). `scripts/build-app` turns it into `Gatekeepr.app`. It isn't called `Gatekeepr` because on a case-insensitive disk that would collide with the `gatekeepr` CLI in `.build/` |
 
 All the session logic is in `GatekeeprCore`; the app doesn't make any decisions
@@ -303,6 +307,23 @@ Core tests run against sanitized excerpts of real logs in
 write small synthetic logs and go through the same parser. Never commit raw
 logs: `.gitignore` blocks `*.log` and `*.log.gz` outside the fixtures directory,
 and CI runs `scripts/sanitize-log --check` over the fixtures.
+
+### App icon and menu bar images
+
+`assets/icon/icon.svg` is the icon at 128 px and up, and `icon-small.svg` a flat
+version for 16 and 32 px that stays legible in Finder lists and notifications.
+`scripts/make-icon` renders both into `assets/icon/AppIcon.icns` and writes
+[`docs/icon-contact-sheet.png`](docs/icon-contact-sheet.png). It needs
+`rsvg-convert` (`brew install librsvg`), so both outputs are committed:
+`scripts/build-app` only copies the `.icns`, and building the app needs nothing
+extra. After changing either SVG, run `scripts/make-icon` and commit the result.
+
+The menu bar ring is drawn in code, in `StatusItemImage`. To redraw
+[`docs/menu-bar-states.png`](docs/menu-bar-states.png) after changing it:
+
+```sh
+GATEKEEPR_STATUS_STRIP=docs/menu-bar-states.png swift test --filter StatusItemImageTests
+```
 
 ### Releasing
 
