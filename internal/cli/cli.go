@@ -49,11 +49,26 @@ func terminalColumns() int {
 	return 80
 }
 
-// Exit codes beyond the ones a status maps to.
+// Exit codes, documented in docs/JSON.md. `--json` reports the same number
+// as exitCode.
 const (
-	exitUnreadable = 3
-	exitUsage      = 64
+	exitActive       = 0
+	exitExpiringSoon = 1
+	// exitNotSignedIn: expired, signed out or no session.
+	exitNotSignedIn = 2
+	exitUnreadable  = 3
+	exitUsage       = 64
 )
+
+func exitCode(state core.State) int {
+	switch state {
+	case core.Active:
+		return exitActive
+	case core.ExpiringSoon:
+		return exitExpiringSoon
+	}
+	return exitNotSignedIn
+}
 
 // Run runs gatekeepr with args (without the program name) and returns the exit code.
 func Run(args []string, env Env) int {
@@ -82,13 +97,13 @@ func runStatus(call invocation, env Env) int {
 	}
 	switch {
 	case call.json:
-		fmt.Fprintln(env.Stdout, core.StatusReport(status, env.Location))
+		fmt.Fprintln(env.Stdout, statusReport(status, env.Location))
 	case call.short:
-		fmt.Fprintln(env.Stdout, core.ShortStatus(status))
+		fmt.Fprintln(env.Stdout, shortStatus(status))
 	default:
 		fmt.Fprintln(env.Stdout, statusText(status, call.logDir, env.Location))
 	}
-	return status.State.ExitCode()
+	return exitCode(status.State)
 }
 
 func runHistory(call invocation, env Env) int {
@@ -97,7 +112,7 @@ func runHistory(call invocation, env Env) int {
 		return fail(err, call.json, false, env)
 	}
 	if call.json {
-		fmt.Fprintln(env.Stdout, core.HistoryReport(analysis, env.Location))
+		fmt.Fprintln(env.Stdout, historyReport(analysis, env.Location))
 	} else {
 		fmt.Fprintln(env.Stdout, historyText(analysis, call.logDir, env.Location))
 	}
@@ -110,9 +125,9 @@ func fail(err error, json, short bool, env Env) int {
 	fmt.Fprintf(env.Stderr, "gatekeepr: %s\n", message)
 	switch {
 	case json:
-		fmt.Fprintln(env.Stdout, core.ErrorReport(message))
+		fmt.Fprintln(env.Stdout, errorReport(message))
 	case short:
-		fmt.Fprintln(env.Stdout, core.ShortError)
+		fmt.Fprintln(env.Stdout, shortError)
 	}
 	return exitUnreadable
 }

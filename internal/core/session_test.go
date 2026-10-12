@@ -37,7 +37,7 @@ func TestSigningOutEarly(t *testing.T) {
 	if result.Outcome(result.Sessions[0]) != OutcomeSignedOut {
 		t.Errorf("outcome %s", result.Outcome(result.Sessions[0]))
 	}
-	if status := result.Status(1800 * time.Second); status.State != SignedOut || status.State.ExitCode() != 2 {
+	if status := result.Status(1800 * time.Second); status.State != SignedOut {
 		t.Errorf("state %s", status.State)
 	}
 }

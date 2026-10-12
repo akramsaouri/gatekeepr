@@ -1,4 +1,4 @@
-package core
+package cli
 
 import (
 	"fmt"
@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// ParseDuration parses `30m`, `2h`, `1h30m`, `45s` or `1h30m15s`, in any
+// parseDuration parses `30m`, `2h`, `1h30m`, `45s` or `1h30m15s`, in any
 // case. Units must come in h, m, s order, each at most once. ok is false for
 // anything else.
-func ParseDuration(text string) (time.Duration, bool) {
+func parseDuration(text string) (time.Duration, bool) {
 	rest := strings.ToLower(text)
 	if rest == "" {
 		return 0, false
@@ -55,29 +55,29 @@ func ParseDuration(text string) (time.Duration, bool) {
 	return total, true
 }
 
-// Rounding picks how FormatDuration turns seconds into minutes.
-type Rounding int
+// rounding picks how formatDuration turns seconds into minutes.
+type rounding int
 
 const (
-	// RoundDown never overstates time left.
-	RoundDown Rounding = iota
-	// RoundNearest rounds half away from zero.
-	RoundNearest
+	// roundDown never overstates time left.
+	roundDown rounding = iota
+	// roundNearest rounds half away from zero.
+	roundNearest
 )
 
-// FormatDuration gives `6h08m`, `45m`, `<1m` or `0m`.
-func FormatDuration(d time.Duration, rounding Rounding) string {
+// formatDuration gives `6h08m`, `45m`, `<1m` or `0m`.
+func formatDuration(d time.Duration, r rounding) string {
 	if d < 0 {
 		d = 0
 	}
 	var minutes int64
-	if rounding == RoundDown {
+	if r == roundDown {
 		minutes = int64(d / time.Minute)
 	} else {
 		minutes = int64((d + 30*time.Second) / time.Minute)
 	}
 	if minutes == 0 {
-		if d > 0 && rounding == RoundDown {
+		if d > 0 && r == roundDown {
 			return "<1m"
 		}
 		return "0m"

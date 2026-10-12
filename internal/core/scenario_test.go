@@ -12,7 +12,7 @@ import (
 
 func TestNormalDayIsActiveWithExpiryFromLearnedLength(t *testing.T) {
 	status := statusOf(t, "normal-day", "2026-10-09T12:00:00Z", defaultWarn)
-	if status.State != Active || status.State.ExitCode() != 0 {
+	if status.State != Active {
 		t.Fatalf("state %s", status.State)
 	}
 	// AWS and GCP both log in at 07:55:35.444: one sign-in.
@@ -30,9 +30,8 @@ func TestNormalDayIsActiveWithExpiryFromLearnedLength(t *testing.T) {
 		t.Errorf("source %s", status.Expiry.Source)
 	}
 	assertDate(t, status.Expiry.Date, utc(t, "2026-10-10T07:55:34.678Z"))
-	if left, _ := status.TimeLeft(); FormatDuration(left, RoundDown) != "19h55m" {
-		t.Errorf("time left %s", left)
-	}
+	left, _ := status.TimeLeft()
+	assertSeconds(t, left, 19*3600+55*60+34.678)
 }
 
 func TestNormalDayHistory(t *testing.T) {
@@ -57,7 +56,7 @@ func TestNormalDayHistory(t *testing.T) {
 
 func TestNormalDayWarnWindow(t *testing.T) {
 	status := statusOf(t, "normal-day", "2026-10-10T07:30:00Z", defaultWarn)
-	if status.State != ExpiringSoon || status.State.ExitCode() != 1 {
+	if status.State != ExpiringSoon {
 		t.Errorf("state %s", status.State)
 	}
 	if relaxed := statusOf(t, "normal-day", "2026-10-10T07:30:00Z", 10*time.Minute); relaxed.State != Active {
@@ -68,7 +67,7 @@ func TestNormalDayWarnWindow(t *testing.T) {
 func TestNormalDayPastExpiryWithoutCloseIsExpired(t *testing.T) {
 	// The log just stops (laptop asleep); the learned expiry has passed.
 	status := statusOf(t, "normal-day", "2026-10-10T09:00:00Z", defaultWarn)
-	if status.State != Expired || status.State.ExitCode() != 2 {
+	if status.State != Expired {
 		t.Errorf("state %s", status.State)
 	}
 }
@@ -250,7 +249,7 @@ func TestSigningOutOnANonZeroPort(t *testing.T) {
 
 func TestEmptyLogMeansNoSession(t *testing.T) {
 	status := statusOf(t, "empty", "2026-10-10T12:00:00Z", defaultWarn)
-	if status.State != NoSession || status.State.ExitCode() != 2 || status.Session != nil || !status.SessionLength.IsFallback() {
+	if status.State != NoSession || status.Session != nil || !status.SessionLength.IsFallback() {
 		t.Errorf("status %+v", status)
 	}
 }
