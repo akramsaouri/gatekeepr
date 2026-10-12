@@ -52,5 +52,10 @@ let package = Package(
             name: "GatekeeprMenuBarTests",
             dependencies: ["GatekeeprCore", "GatekeeprMenuBar"]
         ),
+        // Draws the menu bar item, and renders docs/menu-bar-states.png.
+        .testTarget(
+            name: "GatekeeprAppTests",
+            dependencies: ["GatekeeprApp", "GatekeeprMenuBar"]
+        ),
     ]
 )

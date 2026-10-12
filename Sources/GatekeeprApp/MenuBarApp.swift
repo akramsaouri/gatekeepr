@@ -20,8 +20,8 @@ struct MenuBarApp: App {
     }
 }
 
-/// The menu bar item: an icon and the time left, coloured in the warn window,
-/// when expired and on errors.
+/// The menu bar item: a ring that drains as the session runs out, and the time
+/// left, coloured in the warn window, when expired and on errors.
 struct StatusLabel: View {
     @ObservedObject var model: StatusModel
 
