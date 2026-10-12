@@ -6,3 +6,5 @@ DerivedData/
 *.log
 *.log.gz
 !Tests/**/Fixtures/**
+# scripts/build-app output
+/build/

@@ -8,6 +8,10 @@ let package = Package(
     products: [
         .library(name: "GatekeeprCore", targets: ["GatekeeprCore"]),
         .executable(name: "gatekeepr", targets: ["gatekeepr"]),
+        // The menu bar app's binary. scripts/build-app wraps it in Gatekeepr.app.
+        // It isn't called "Gatekeepr" because on a case-insensitive volume that
+        // would collide with the gatekeepr CLI in .build/.
+        .executable(name: "GatekeeprApp", targets: ["GatekeeprApp"]),
     ],
     dependencies: [
         // 1.8 needs Swift 6 tools (Xcode 16), which macOS 13 can't run.
@@ -27,11 +31,26 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
-        // Milestone 2: the Gatekeepr.app menu bar target (SwiftUI MenuBarExtra) goes here.
+        // The menu bar app's logic: state mapping, notification bookkeeping,
+        // settings and the log watcher. Kept out of the app target so it can be tested.
+        .target(
+            name: "GatekeeprMenuBar",
+            dependencies: ["GatekeeprCore"]
+        ),
+        // Gatekeepr.app: the SwiftUI MenuBarExtra and the system glue
+        // (notifications, launch at login, opening Appgate).
+        .executableTarget(
+            name: "GatekeeprApp",
+            dependencies: ["GatekeeprCore", "GatekeeprMenuBar"]
+        ),
         .testTarget(
             name: "GatekeeprCoreTests",
             dependencies: ["GatekeeprCore"],
             resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "GatekeeprMenuBarTests",
+            dependencies: ["GatekeeprCore", "GatekeeprMenuBar"]
         ),
     ]
 )

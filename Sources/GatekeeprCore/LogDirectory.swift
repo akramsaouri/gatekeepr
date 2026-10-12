@@ -11,7 +11,7 @@ public struct LogFile: Equatable, Sendable {
     public var isCompressed: Bool { url.pathExtension == "gz" }
 
     /// Recognises driver log names; returns nil for anything else in the directory.
-    init?(url: URL) {
+    public init?(url: URL) {
         let name = url.lastPathComponent
         if name == "driver.log" {
             self.url = url

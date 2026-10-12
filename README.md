@@ -1,7 +1,7 @@
 # gatekeepr
 
-Know when your Appgate SDP session on macOS is about to expire, as a CLI (and
-soon a menu bar app).
+Know when your Appgate SDP session on macOS is about to expire, as a CLI and a
+menu bar app.
 
 > **Unofficial.** gatekeepr is not affiliated with, endorsed by or supported by
 > Appgate. It works from observed `driver.log` behaviour, not a documented API,
@@ -13,7 +13,8 @@ then everything behind the VPN stops working. gatekeepr reads the driver logs
 in `/var/log/appgate`, which any user can read, and tells you when that will
 happen. It needs no root and makes no network calls.
 
-Status: Milestone 1 (core library + CLI). See [docs/SCOPE.md](docs/SCOPE.md).
+Status: Milestone 2 (menu bar app), on top of Milestone 1 (core library + CLI).
+See [docs/SCOPE.md](docs/SCOPE.md).
 
 ## Install from source
 
@@ -28,6 +29,8 @@ sudo install .build/release/gatekeepr /usr/local/bin/
 ```
 
 Or put `.build/release/gatekeepr` anywhere else on your `PATH`.
+
+For the menu bar app, see [Menu bar app](#menu-bar-app).
 
 ## Usage
 
@@ -101,6 +104,73 @@ Wed 7 Oct 08:18   sign-in  Thu 8 Oct 08:18   expired      24h00m  0
 Sun 11 Oct 01:24  sign-in  -                 active       -       1
 ```
 
+## Menu bar app
+
+`Gatekeepr.app` puts the time left in the menu bar, using the same text as
+`gatekeepr --short`:
+
+| Menu bar | Meaning |
+|---|---|
+| clock `6h08m` | Signed in, more than the warn threshold left |
+| orange hourglass `25m` | Signed in, inside the warn window |
+| red `expired` | The session ran out |
+| `signed out` / `no session` | Not signed in |
+| red triangle `error` | The logs can't be read, or don't look the way gatekeepr expects (the CLI's exit code 3). The menu shows why. It never falls back to a guess |
+
+The menu shows the sign-in time, the expiry, the time left and how many past
+sessions the length was learned from (the same lines `gatekeepr` prints), your
+recent sessions, **Open Appgate**, **Warn Before Expiry** (5 minutes to 2 hours,
+default 30 minutes, remembered), **Launch at Login** and **Quit**.
+
+- **Notifications.** You get one when the session enters the warn window, and
+  one when it expires, once per session each. Gatekeepr remembers which session
+  it already told you about, so restarting the app doesn't repeat them. An
+  expiry more than 15 minutes old isn't announced, so starting the app (or
+  opening the laptop) the morning after doesn't ping you about last night's
+  session; the menu bar already says `expired`. Click a notification to open
+  Appgate SDP.
+- **Live updates.** The app watches `/var/log/appgate` for changes (kqueue, no
+  polling), so signing in, signing out or renewing shows up within a second. It
+  follows `driver.log` through Appgate's nightly log rotation. The only timer
+  ticks the countdown once a minute.
+- **Launch at Login** uses `SMAppService`, so the app shows up under System
+  Settings › General › Login Items. Move `Gatekeepr.app` to Applications first.
+- **No Dock icon** (`LSUIElement`).
+- **Not sandboxed, and can't be.** It reads `/var/log/appgate`, which a
+  sandboxed app has no access to. That's also why it won't be on the App Store.
+  Like the CLI, it needs no root and makes no network calls.
+
+### Build the app
+
+```sh
+scripts/build-app
+open build/Gatekeepr.app        # or move it to /Applications first
+```
+
+The script builds a release binary, wraps it in `build/Gatekeepr.app` and signs
+it ad hoc.
+
+> **Not notarized, by choice.** The app is ad-hoc signed only, with no Developer
+> ID and no notarization. A copy you built yourself runs as is. A downloaded copy
+> is blocked by Gatekeeper the first time you open it ("Apple could not verify…").
+> To allow it once:
+>
+> 1. Open `Gatekeepr.app` and dismiss the warning.
+> 2. Go to **System Settings › Privacy & Security**, scroll to **Security**, and
+>    click **Open Anyway** next to the Gatekeepr message.
+> 3. Open the app again and confirm.
+>
+> On macOS 14 and earlier, right-click the app in Finder and choose **Open**
+> instead. Or clear the quarantine flag from a terminal:
+> `xattr -dr com.apple.quarantine /Applications/Gatekeepr.app`.
+
+To point the app at a different log directory (like the CLI's `--log-dir`):
+
+```sh
+defaults write io.github.akramsaouri.gatekeepr logDirectory /path/to/logs
+open build/Gatekeepr.app --args -logDirectory /path/to/logs   # one run only
+```
+
 ## How it works
 
 There is no API for any of this. Everything comes from `driver.log` and the
@@ -157,11 +227,23 @@ It needs only Python 3. Read the output before you share it anyway.
 ```sh
 swift build
 swift test
+scripts/build-app
 ```
 
-The core logic lives in the `GatekeeprCore` library, so the menu bar app
-(Milestone 2) can share it with the CLI. Tests run against sanitized excerpts
-of real logs in `Tests/GatekeeprCoreTests/Fixtures`; see the README there. Never
-commit raw logs: `.gitignore` blocks `*.log` and `*.log.gz` outside the
-fixtures directory, and CI runs `scripts/sanitize-log --check` over the
-fixtures.
+| Target | What it is |
+|---|---|
+| `GatekeeprCore` | Reads the logs, splits them into sessions, learns the length, computes expiry. Also the wording both front ends share (`StatusText`) |
+| `gatekeepr` | The CLI |
+| `GatekeeprMenuBar` | The menu bar app's logic: what the menu shows in each state, notification bookkeeping, settings and the log watcher. No UI, unit-tested |
+| `GatekeeprApp` | The SwiftUI `MenuBarExtra` and the system glue (notifications, launch at login, opening Appgate). `scripts/build-app` turns it into `Gatekeepr.app`. It isn't called `Gatekeepr` because on a case-insensitive disk that would collide with the `gatekeepr` CLI in `.build/` |
+
+All the session logic is in `GatekeeprCore`; the app doesn't make any decisions
+of its own about sessions. `swift run GatekeeprApp` starts the app without a
+bundle, which is handy for working on the menu, but notifications and launch at
+login only work from `Gatekeepr.app`.
+
+Core tests run against sanitized excerpts of real logs in
+`Tests/GatekeeprCoreTests/Fixtures`; see the README there. The menu bar tests
+write small synthetic logs and go through the same parser. Never commit raw
+logs: `.gitignore` blocks `*.log` and `*.log.gz` outside the fixtures directory,
+and CI runs `scripts/sanitize-log --check` over the fixtures.

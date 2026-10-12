@@ -20,9 +20,10 @@ These are observations from Appgate client 6.5.3 talking to gateway 6.5.6. They 
 ## Architecture: one Swift package
 | Target | What it does |
 |---|---|
-| `GatekeeprCore` | Reads the logs (including gzip), splits them into sessions, learns the session length, computes expiry. No UI, fully unit-tested |
+| `GatekeeprCore` | Reads the logs (including gzip), splits them into sessions, learns the session length, computes expiry. Also the wording the CLI and app share (`StatusText`). No UI, fully unit-tested |
 | `gatekeepr` (CLI) | swift-argument-parser |
-| `Gatekeepr.app` | SwiftUI `MenuBarExtra`, watches the log for changes (no polling), sends native notifications |
+| `GatekeeprMenuBar` | The app's logic without UI: state mapping, notification bookkeeping, settings, the log watcher. Unit-tested |
+| `GatekeeprApp` → `Gatekeepr.app` | SwiftUI `MenuBarExtra`, watches the log for changes (no polling), sends native notifications. `scripts/build-app` makes the bundle. Not named `Gatekeepr` because on a case-insensitive disk it would collide with the `gatekeepr` CLI in `.build/` |
 
 Minimum macOS 13 (needed for `MenuBarExtra`).
 
@@ -43,11 +44,21 @@ Minimum macOS 13 (needed for `MenuBarExtra`).
 - Launch at login via `SMAppService`
 - Updates instantly when you sign in again, using a file watch on `driver.log`
 
+Done. How it came out:
+- **Menu bar text** is exactly `gatekeepr --short` (`6h08m`, `expired`, `signed out`, `no session`, `error`). Normal: monochrome clock. Warn window: orange hourglass and text. Expired: red. Signed out / no session: monochrome ✕. Log unreadable or unparseable (the CLI's exit 3): red triangle and `error`, with the reason in the menu, never an old or guessed answer
+- **Menu:** the same heading and rows as `gatekeepr` (sign-in, expiry, time left, length and how many sessions it was learned from), the last 10 sessions from the `history` logic, Open Appgate (bundle id `com.appgate.sdp`, then `Appgate SDP.app` / `AppGate SDP.app` in the Applications folders), Warn Before Expiry (5m, 10m, 15m, 30m, 45m, 1h, 2h; default 30m; persisted), Launch at Login (`SMAppService.mainApp`), Quit
+- **Notifications** (`UNUserNotificationCenter`): a warning when the session enters the warn window, once per session; and an expiry notice, once per session, only if the expiry is under 15 minutes old (so launching or waking the next morning doesn't announce it). A session is identified by its start time; the last one notified for each kind is persisted, so relaunching doesn't repeat them. A new session withdraws the old notifications. Clicking one opens Appgate. The app sets `NSUserNotificationAlertStyle = alert`, so warnings stay on screen until dismissed
+- **File watch:** kqueue (DispatchSource) on `/var/log/appgate` and on `driver.log`. The directory source catches rotation (a new `driver.log` inode, `.gz` files appearing) and re-opens the file source; the file source catches appends and truncation. Other files there (`driver.status`) are ignored. If the directory is missing, the parent is watched until it appears. Bursts are coalesced (250 ms). No polling; the only timer ticks the countdown, firing just after the displayed minute changes, and the app re-checks on wake
+- **Not sandboxed:** it has to read `/var/log/appgate`
+- **Packaging:** `scripts/build-app` builds release, assembles `Gatekeepr.app` (LSUIElement, bundle id `io.github.akramsaouri.gatekeepr`, version from `Gatekeepr.version`) and signs it ad hoc with the hardened runtime. CI runs it on every PR
+
 ## Distribution
+Not started. **Unsigned by choice (decided 2026-10-12):** `Gatekeepr.app` is ad-hoc signed and not notarized. The cost is accepted: a downloaded copy needs a one-time **Open Anyway** in System Settings › Privacy & Security (the README walks through it). `scripts/build-app` keeps its `TODO(signing)` / `TODO(notarization)` hook (`GATEKEEPR_SIGN_IDENTITY`) in case this is revisited.
+
 - **Homebrew tap** (`brew install <user>/tap/gatekeepr`): the formula covers the CLI and a cask covers the app
-- **GitHub Releases:** a notarized `.app` zip and a universal CLI binary
+- **GitHub Releases:** an ad-hoc-signed `.app` zip (not notarized) and a universal CLI binary
 - **Not on the App Store:** a sandboxed app can't read `/var/log/appgate`
-- CI on GitHub Actions: build + test on every PR, and tags build, sign, notarize and release
+- CI on GitHub Actions: build + test on every PR, and tags build, ad-hoc sign and release
 
 ## Out of scope
 - Auto-renewing the session (Appgate sign-in needs SSO with you present)
@@ -60,5 +71,4 @@ Minimum macOS 13 (needed for `MenuBarExtra`).
 - The README makes clear this is an unofficial tool, not affiliated with Appgate, and works from observed log behaviour
 
 ## Open questions
-- Which GitHub account owns it (personal vs `waadrarii`)?
-- Signing identity for notarization: personal Developer ID or Waadrarii's?
+None. Settled 2026-10-12: the repo lives on the personal account (`akramsaouri`), so the bundle id stays `io.github.akramsaouri.gatekeepr`. No Developer ID signing or notarization (see Distribution).
