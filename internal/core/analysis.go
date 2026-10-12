@@ -87,8 +87,11 @@ type Status struct {
 	Now   time.Time
 	// Session is the open session, or the most recent one when signed out.
 	// Nil when there are none.
-	Session       *Session
-	Expiry        *Expiry
+	Session *Session
+	Expiry  *Expiry
+	// Outcome is the session's outcome; empty when there's no session. It
+	// tells a sign-out from an interruption, which State folds into SignedOut.
+	Outcome       Outcome
 	WarnThreshold time.Duration
 	SessionLength SessionLength
 }
@@ -156,7 +159,8 @@ func (a Analysis) Status(warnThreshold time.Duration) Status {
 	}
 	session := a.Sessions[len(a.Sessions)-1]
 	expiry := a.Expiry(session)
-	switch a.Outcome(session) {
+	status.Outcome = a.Outcome(session)
+	switch status.Outcome {
 	case OutcomeActive:
 		if expiry.Date.Sub(a.Now) <= warnThreshold {
 			status.State = ExpiringSoon

@@ -69,6 +69,26 @@ func TestSummaryWhenExpiredAndSignedOut(t *testing.T) {
 	}
 }
 
+func TestSummaryEndReasons(t *testing.T) {
+	for _, c := range []struct {
+		end     EventKind
+		outcome Outcome
+		want    string
+	}{
+		{ClientClosed, OutcomeSignedOut, "Sat 10 Oct 10:00 (signed out)"},
+		{ClientConnected, OutcomeInterrupted, "Sat 10 Oct 10:00 (the Appgate client restarted)"},
+		{DriverRestarted, OutcomeInterrupted, "Sat 10 Oct 10:00 (the Appgate driver restarted)"},
+	} {
+		status := analysisOf([]Event{login(0), event(2, c.end)}, 3).Status(defaultWarn)
+		if status.State != SignedOut || status.Outcome != c.outcome {
+			t.Errorf("%v: state %s, outcome %s", c.end, status.State, status.Outcome)
+		}
+		if got := Summarize(status, "/x", time.UTC).Rows[1].Value; got != c.want {
+			t.Errorf("%v: ended %q", c.end, got)
+		}
+	}
+}
+
 func TestSummaryWithNoSession(t *testing.T) {
 	summary := Summarize(statusOf(t, "empty", "2026-10-10T12:00:00Z", defaultWarn), AppgateLogDirectory, time.UTC)
 	if summary.Heading != "No Appgate session found in /var/log/appgate." || len(summary.Rows) != 0 {

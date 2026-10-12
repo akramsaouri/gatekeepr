@@ -71,26 +71,19 @@ func Summarize(status Status, logDirectory string, loc *time.Location) Summary {
 			{"Expired", fmt.Sprintf("%s (%s ago)", date(expiry.Date), ago)},
 			{"Length", length},
 		}}
-	case SignedOut:
-		var reason string
-		switch session.EndKind {
-		case ClientRestarted:
-			reason = "the Appgate client restarted"
-		case DriverRestartedEnd:
+	default: // SignedOut, which is always a closed session
+		reason := "signed out"
+		if status.Outcome == OutcomeInterrupted {
 			reason = "the Appgate driver restarted"
-		default:
-			reason = "signed out"
-		}
-		ended := "?"
-		if !session.IsOpen() {
-			ended = date(session.End)
+			if session.EndKind == ClientRestarted {
+				reason = "the Appgate client restarted"
+			}
 		}
 		return Summary{Heading: "Not signed in to Appgate", Rows: []SummaryRow{
 			{"Last session", date(session.Start)},
-			{"Ended", fmt.Sprintf("%s (%s)", ended, reason)},
+			{"Ended", fmt.Sprintf("%s (%s)", date(session.End), reason)},
 		}}
 	}
-	return Summary{Heading: fmt.Sprintf("No Appgate session found in %s.", logDirectory)}
 }
 
 // FormatSessionLength gives `24h00m, the median of 17 measured sessions`.
