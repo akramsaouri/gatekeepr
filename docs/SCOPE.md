@@ -52,13 +52,28 @@ Done. How it came out:
 - **Not sandboxed:** it has to read `/var/log/appgate`
 - **Packaging:** `scripts/build-app` builds release, assembles `Gatekeepr.app` (LSUIElement, bundle id `io.github.akramsaouri.gatekeepr`, version from `Gatekeepr.version`) and signs it ad hoc with the hardened runtime. CI runs it on every PR
 
-## Distribution
-Not started. **Unsigned by choice (decided 2026-10-12):** `Gatekeepr.app` is ad-hoc signed and not notarized. The cost is accepted: a downloaded copy needs a one-time **Open Anyway** in System Settings › Privacy & Security (the README walks through it). `scripts/build-app` keeps its `TODO(signing)` / `TODO(notarization)` hook (`GATEKEEPR_SIGN_IDENTITY`) in case this is revisited.
+## Milestone 3: GitHub Releases
+Distribution through GitHub Releases only; Homebrew is deferred (see Distribution).
 
-- **Homebrew tap** (`brew install <user>/tap/gatekeepr`): the formula covers the CLI and a cask covers the app
-- **GitHub Releases:** an ad-hoc-signed `.app` zip (not notarized) and a universal CLI binary
+Done. How it came out:
+- **Trigger:** pushing a `v*` tag runs `.github/workflows/release.yml` on `macos-latest`: the full test suite, `scripts/sanitize-log --check` over the fixtures, `scripts/build-release`, `scripts/check-release dist <tag>`, then the release
+- **Assets:** `Gatekeepr-<version>.zip` (the app, zipped with `ditto -c -k --norsrc --keepParent`), `gatekeepr-<version>-macos-universal.tar.gz` (the CLI in a `gatekeepr-<version>-macos-universal/` folder with `LICENSE` and `README.md`) and `SHA256SUMS`
+- **Universal:** both binaries are built with `swift build --arch arm64 --arch x86_64` (`scripts/build-app --universal` for the app) and checked with `lipo -archs`. Minimum macOS 13 on both slices
+- **Signing:** both ad hoc with the hardened runtime, not notarized. `GATEKEEPR_SIGN_IDENTITY` and the `TODO(signing)` / `TODO(notarization)` hook in `scripts/build-app` stay for later
+- **One version:** `Gatekeepr.version` in `Sources/GatekeeprCore/Version.swift` is the only copy. `gatekeepr --version` prints it and `scripts/build-app` writes it into `CFBundleShortVersionString` and `CFBundleVersion`. `scripts/check-release` fails the release unless the tag is `v` + that version and the built CLI (both slices; x86_64 under Rosetta), the plist and the source all agree
+- **Checks on the shipped files:** `scripts/check-release` unpacks the archives the way a user would (with `unzip`, the strictest) and checks the checksums, both architectures, both signatures (valid, ad hoc, hardened runtime), the bundle id and `LSUIElement`. CI runs `build-release` and `check-release` on every PR, so the packaging is tested before a tag ever is
+- **Why `--norsrc`:** plain `ditto -c -k` stores extended attributes (`com.apple.provenance` on every built file) as `._` entries next to each file. Finder and `ditto -x` fold them back in, but `unzip` leaves them inside the bundle, which breaks its seal ("a sealed resource is missing or invalid")
+- **Release notes:** the commits since the previous `v*` tag (all of them for the first release), under a fixed "Not notarized, by choice" note that points to the README's Install section, plus the `shasum` command and a compare link
+- **No half-published releases:** the release is created as a draft with every asset attached, then published. If any step fails, a draft left by the run is deleted (a published release never is). A failed run is fixed on `main`, and the tag deleted and pushed again
+- **Quarantine:** `curl` and `gh release download` don't quarantine downloads; browsers do, and `tar`, `ditto` and `unzip` all carry the flag over to the extracted app or binary. So a browser-downloaded CLI also needs `xattr -d com.apple.quarantine` (the README covers both)
+
+## Distribution
+**Unsigned by choice (decided 2026-10-12):** `Gatekeepr.app` is ad-hoc signed and not notarized. The cost is accepted: a downloaded copy needs a one-time **Open Anyway** in System Settings › Privacy & Security (the README walks through it). `scripts/build-app` keeps its `TODO(signing)` / `TODO(notarization)` hook (`GATEKEEPR_SIGN_IDENTITY`) in case this is revisited.
+
+- **GitHub Releases:** done in Milestone 3. An ad-hoc-signed `.app` zip (not notarized), a universal CLI tarball and `SHA256SUMS`
+- **Homebrew tap** (`brew install <user>/tap/gatekeepr`): **deferred** (decided 2026-10-12), not part of Milestone 3. When it happens, the formula covers the CLI and a cask covers the app, both pointing at the release assets and their `SHA256SUMS`
 - **Not on the App Store:** a sandboxed app can't read `/var/log/appgate`
-- CI on GitHub Actions: build + test on every PR, and tags build, ad-hoc sign and release
+- CI on GitHub Actions: build, test and the release packaging on every PR; tags build, ad-hoc sign and release
 
 ## Out of scope
 - Auto-renewing the session (Appgate sign-in needs SSO with you present)

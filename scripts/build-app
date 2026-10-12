@@ -1,8 +1,9 @@
 #!/bin/sh
 # Builds Gatekeepr.app, the menu bar app.
 #
-#   scripts/build-app             # writes build/Gatekeepr.app
-#   scripts/build-app OUT_DIR     # writes OUT_DIR/Gatekeepr.app
+#   scripts/build-app                         # writes build/Gatekeepr.app
+#   scripts/build-app OUT_DIR                 # writes OUT_DIR/Gatekeepr.app
+#   scripts/build-app --universal [OUT_DIR]   # arm64 + x86_64, as released
 #
 # SwiftPM can only build the binary, so this wraps it in an app bundle with an
 # Info.plist and signs it. For now the signature is ad hoc: see "Signing" below.
@@ -14,6 +15,13 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
+# Without --universal, the binary is built for this Mac's architecture only.
+arch_flags=""
+if [ "${1:-}" = "--universal" ]; then
+    arch_flags="--arch arm64 --arch x86_64"
+    shift
+fi
+
 out_dir="${1:-build}"
 app="$out_dir/Gatekeepr.app"
 bundle_id="io.github.akramsaouri.gatekeepr"
@@ -23,9 +31,11 @@ if [ -z "$version" ]; then
     exit 1
 fi
 
-echo "==> Building GatekeeprApp $version (release)"
-swift build -c release --product GatekeeprApp
-bin_dir=$(swift build -c release --show-bin-path)
+echo "==> Building GatekeeprApp $version (release${arch_flags:+, universal})"
+# shellcheck disable=SC2086 # arch_flags is a list of flags
+swift build -c release $arch_flags --product GatekeeprApp
+# shellcheck disable=SC2086
+bin_dir=$(swift build -c release $arch_flags --show-bin-path)
 
 echo "==> Assembling $app"
 rm -rf "$app"

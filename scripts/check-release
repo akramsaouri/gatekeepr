@@ -1,0 +1,104 @@
+#!/bin/sh
+# Checks the files scripts/build-release wrote, as a user would get them: it
+# unpacks both archives and checks the checksums, that both binaries are
+# universal and signed, the app's Info.plist, and that every version agrees.
+#
+#   scripts/check-release               # checks dist/
+#   scripts/check-release DIR           # checks DIR/
+#   scripts/check-release DIR v0.2.0    # also checks the tag matches the version
+#
+# The release workflow passes the tag it runs for, so a tag that doesn't match
+# Sources/GatekeeprCore/Version.swift fails before anything is published.
+
+set -eu
+
+cd "$(dirname "$0")/.."
+
+dir="${1:-dist}"
+tag="${2:-}"
+
+fail() {
+    echo "check-release: $*" >&2
+    exit 1
+}
+
+version=$(sed -n 's/.*static let version = "\(.*\)".*/\1/p' Sources/GatekeeprCore/Version.swift)
+[ -n "$version" ] || fail "can't read the version from Sources/GatekeeprCore/Version.swift"
+app_zip="Gatekeepr-$version.zip"
+cli_name="gatekeepr-$version-macos-universal"
+cli_tar="$cli_name.tar.gz"
+
+if [ -n "$tag" ] && [ "$tag" != "v$version" ]; then
+    fail "tag $tag doesn't match version $version in Sources/GatekeeprCore/Version.swift"
+fi
+
+echo "==> Checksums"
+listed=$(awk '{ print $2 }' "$dir/SHA256SUMS" | sort | tr '\n' ' ')
+expected=$(printf '%s\n' "$app_zip" "$cli_tar" | sort | tr '\n' ' ')
+[ "$listed" = "$expected" ] || fail "SHA256SUMS lists '$listed', expected '$expected'"
+(cd "$dir" && shasum -a 256 -c SHA256SUMS)
+
+# unzip(1) is the strictest way to unpack the app: unlike Finder and ditto, it
+# doesn't fold stray ._ files back into extended attributes, so they would
+# break the bundle's seal here.
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+unzip -q "$dir/$app_zip" -d "$work"
+tar -C "$work" -xzf "$dir/$cli_tar"
+app="$work/Gatekeepr.app"
+app_bin="$app/Contents/MacOS/Gatekeepr"
+cli="$work/$cli_name/gatekeepr"
+plist="$app/Contents/Info.plist"
+[ -x "$app_bin" ] || fail "$app_zip has no Gatekeepr.app/Contents/MacOS/Gatekeepr"
+[ -x "$cli" ] || fail "$cli_tar has no $cli_name/gatekeepr"
+
+echo "==> Architectures"
+for bin in "$cli" "$app_bin"; do
+    archs=$(lipo -archs "$bin")
+    echo "    $(basename "$bin"): $archs"
+    for want in arm64 x86_64; do
+        case " $archs " in
+            *" $want "*) ;;
+            *) fail "$(basename "$bin") has no $want slice" ;;
+        esac
+    done
+done
+
+echo "==> Signatures"
+for target in "$cli" "$app"; do
+    codesign --verify --strict --verbose=2 "$target"
+    details=$(codesign -dv "$target" 2>&1)
+    echo "$details" | grep -q 'flags=.*runtime' || fail "$(basename "$target") isn't signed with the hardened runtime"
+    # Ad hoc unless scripts/build-app was given a Developer ID.
+    if [ -z "${GATEKEEPR_SIGN_IDENTITY:-}" ]; then
+        echo "$details" | grep -q 'Signature=adhoc' || fail "$(basename "$target") isn't signed ad hoc"
+    fi
+done
+
+echo "==> Info.plist"
+plist_value() {
+    /usr/libexec/PlistBuddy -c "Print :$1" "$plist"
+}
+[ "$(plist_value CFBundleIdentifier)" = io.github.akramsaouri.gatekeepr ] || fail "unexpected CFBundleIdentifier"
+[ "$(plist_value LSUIElement)" = true ] || fail "LSUIElement isn't set"
+
+echo "==> Versions"
+cli_version=$("$cli" --version)
+echo "    Version.swift:              $version"
+echo "    gatekeepr --version:        $cli_version"
+# Runs the Intel slice too, where Rosetta is installed.
+if arch -x86_64 /usr/bin/true 2>/dev/null; then
+    cli_version_x86=$(arch -x86_64 "$cli" --version)
+    echo "    gatekeepr --version x86_64: $cli_version_x86"
+    [ "$cli_version_x86" = "$version" ] || fail "the x86_64 CLI says $cli_version_x86, expected $version"
+fi
+echo "    CFBundleShortVersionString: $(plist_value CFBundleShortVersionString)"
+echo "    CFBundleVersion:            $(plist_value CFBundleVersion)"
+if [ -n "$tag" ]; then
+    echo "    tag:                        $tag"
+fi
+[ "$cli_version" = "$version" ] || fail "gatekeepr --version says $cli_version, expected $version"
+[ "$(plist_value CFBundleShortVersionString)" = "$version" ] || fail "CFBundleShortVersionString doesn't match $version"
+[ "$(plist_value CFBundleVersion)" = "$version" ] || fail "CFBundleVersion doesn't match $version"
+
+echo "==> OK: gatekeepr $version"

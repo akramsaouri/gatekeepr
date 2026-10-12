@@ -1,0 +1,74 @@
+#!/bin/sh
+# Builds everything a GitHub release ships:
+#
+#   Gatekeepr-<version>.zip                       the menu bar app
+#   gatekeepr-<version>-macos-universal.tar.gz    the CLI, with LICENSE and README.md
+#   SHA256SUMS
+#
+#   scripts/build-release            # writes dist/
+#   scripts/build-release OUT_DIR    # writes OUT_DIR/
+#
+# Both binaries are universal (arm64 + x86_64) and signed like scripts/build-app
+# signs the app: ad hoc with the hardened runtime, unless GATEKEEPR_SIGN_IDENTITY
+# is set. The version comes from Sources/GatekeeprCore/Version.swift.
+#
+# scripts/check-release checks the result. The release workflow runs both on a
+# v* tag, and CI runs both on every PR, so the packaging can't break unnoticed
+# between releases.
+
+set -eu
+
+cd "$(dirname "$0")/.."
+
+out_dir="${1:-dist}"
+version=$(sed -n 's/.*static let version = "\(.*\)".*/\1/p' Sources/GatekeeprCore/Version.swift)
+if [ -z "$version" ]; then
+    echo "build-release: can't read the version from Sources/GatekeeprCore/Version.swift" >&2
+    exit 1
+fi
+arch_flags="--arch arm64 --arch x86_64"
+cli_name="gatekeepr-$version-macos-universal"
+app_zip="Gatekeepr-$version.zip"
+cli_tar="$cli_name.tar.gz"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+rm -rf "$out_dir"
+mkdir -p "$out_dir"
+
+echo "==> Building gatekeepr $version (release, universal)"
+# shellcheck disable=SC2086 # arch_flags is a list of flags
+swift build -c release $arch_flags --product gatekeepr
+# shellcheck disable=SC2086
+bin_dir=$(swift build -c release $arch_flags --show-bin-path)
+
+mkdir "$work/$cli_name"
+cp "$bin_dir/gatekeepr" LICENSE README.md "$work/$cli_name/"
+cli="$work/$cli_name/gatekeepr"
+
+# See "Signing" in scripts/build-app.
+identity="${GATEKEEPR_SIGN_IDENTITY:--}"
+if [ "$identity" = "-" ]; then
+    echo "==> Signing the CLI ad hoc"
+    codesign --force --options runtime --sign - "$cli"
+else
+    echo "==> Signing the CLI as $identity"
+    codesign --force --options runtime --timestamp --sign "$identity" "$cli"
+fi
+codesign --verify --strict "$cli"
+
+scripts/build-app --universal "$work"
+app="$work/Gatekeepr.app"
+
+echo "==> Packaging into $out_dir"
+# ditto keeps the bundle's structure and signature intact, as Apple recommends
+# for zipping an app. --norsrc leaves out extended attributes such as
+# com.apple.provenance: ditto would store them as ._ files next to each file,
+# and unzip(1) would then leave those inside the bundle and break its seal.
+ditto -c -k --norsrc --keepParent "$app" "$out_dir/$app_zip"
+# COPYFILE_DISABLE stops tar adding AppleDouble ._ files for extended attributes.
+COPYFILE_DISABLE=1 tar -C "$work" -czf "$out_dir/$cli_tar" "$cli_name"
+(cd "$out_dir" && shasum -a 256 "$app_zip" "$cli_tar" > SHA256SUMS)
+
+ls -l "$out_dir"
+echo "==> Done. scripts/check-release $out_dir checks what's inside."

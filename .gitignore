@@ -8,3 +8,5 @@ DerivedData/
 !Tests/**/Fixtures/**
 # scripts/build-app output
 /build/
+# scripts/build-release output
+/dist/
