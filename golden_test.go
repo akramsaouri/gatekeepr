@@ -161,7 +161,7 @@ func (g *golden) write(path string) error {
 }
 
 // shellWords splits the `args:` line, which is quoted the way bash's
-// printf %q quotes: backslash escapes and '' for an empty argument.
+// printf %q quotes: backslash escapes and ” for an empty argument.
 func shellWords(line string) ([]string, error) {
 	var words []string
 	var word strings.Builder
