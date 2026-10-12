@@ -71,8 +71,8 @@ const (
 )
 
 var (
-	versionRow = helpRow{"--version", "Show the version."}
-	helpRow_   = helpRow{"-h, --help", "Show help information."}
+	versionRow  = helpRow{"--version", "Show the version."}
+	helpFlagRow = helpRow{"-h, --help", "Show help information."}
 )
 
 func init() {
@@ -80,7 +80,7 @@ func init() {
 		abstract: rootAbstract + "\n\n" + rootDiscussion,
 		usage:    "gatekeepr <subcommand>",
 		sections: []helpSection{
-			{"OPTIONS", []helpRow{versionRow, helpRow_}},
+			{"OPTIONS", []helpRow{versionRow, helpFlagRow}},
 			{"SUBCOMMANDS", []helpRow{{"status (default)", statusAbstract}, {"history", historyAbstract}}},
 		},
 		footer: "\n  See 'gatekeepr help <subcommand>' for detailed help.",
@@ -96,7 +96,7 @@ func init() {
 		}
 		command.page = helpPage{
 			usage:    command.usage(),
-			sections: []helpSection{{"OPTIONS", append(rows, versionRow, helpRow_)}},
+			sections: []helpSection{{"OPTIONS", append(rows, versionRow, helpFlagRow)}},
 		}
 	}
 	statusCommand.page.abstract = statusAbstract
@@ -146,7 +146,7 @@ func (c *commandSpec) subcommand(text string) *commandSpec {
 	return nil
 }
 
-// MARK: Splitting arguments
+// Splitting arguments into elements, as SplitArguments.swift does.
 
 type nameKind int
 
@@ -266,7 +266,7 @@ func invalidOption(text string) *usageError {
 	return &usageError{message: "Invalid option: " + text, stack: []*commandSpec{rootCommand}}
 }
 
-// MARK: Parsing
+// Parsing, as CommandParser.swift does.
 
 // invocation is what the arguments ask for.
 type invocation struct {
