@@ -150,10 +150,19 @@ open build/Gatekeepr.app        # or move it to /Applications first
 The script builds a release binary, wraps it in `build/Gatekeepr.app` and signs
 it ad hoc.
 
-> **Unsigned for now.** There's no Developer ID certificate yet, so the app is
-> ad-hoc signed and not notarized. A copy you built yourself runs as is. A copy
-> from somewhere else is blocked by Gatekeeper the first time: right-click it in
-> Finder, pick **Open**, then confirm. Signed, notarized releases come later.
+> **Not notarized, by choice.** The app is ad-hoc signed only, with no Developer
+> ID and no notarization. A copy you built yourself runs as is. A downloaded copy
+> is blocked by Gatekeeper the first time you open it ("Apple could not verify…").
+> To allow it once:
+>
+> 1. Open `Gatekeepr.app` and dismiss the warning.
+> 2. Go to **System Settings › Privacy & Security**, scroll to **Security**, and
+>    click **Open Anyway** next to the Gatekeepr message.
+> 3. Open the app again and confirm.
+>
+> On macOS 14 and earlier, right-click the app in Finder and choose **Open**
+> instead. Or clear the quarantine flag from a terminal:
+> `xattr -dr com.apple.quarantine /Applications/Gatekeepr.app`.
 
 To point the app at a different log directory (like the CLI's `--log-dir`):
 

@@ -53,12 +53,12 @@ Done. How it came out:
 - **Packaging:** `scripts/build-app` builds release, assembles `Gatekeepr.app` (LSUIElement, bundle id `io.github.akramsaouri.gatekeepr`, version from `Gatekeepr.version`) and signs it ad hoc with the hardened runtime. CI runs it on every PR
 
 ## Distribution
-Not started. `Gatekeepr.app` is ad-hoc signed for now because there's no Developer ID certificate yet; `scripts/build-app` has a `TODO(signing)` / `TODO(notarization)` hook (`GATEKEEPR_SIGN_IDENTITY`) for when there is.
+Not started. **Unsigned by choice (decided 2026-10-12):** `Gatekeepr.app` is ad-hoc signed and not notarized. The cost is accepted: a downloaded copy needs a one-time **Open Anyway** in System Settings › Privacy & Security (the README walks through it). `scripts/build-app` keeps its `TODO(signing)` / `TODO(notarization)` hook (`GATEKEEPR_SIGN_IDENTITY`) in case this is revisited.
 
 - **Homebrew tap** (`brew install <user>/tap/gatekeepr`): the formula covers the CLI and a cask covers the app
-- **GitHub Releases:** a notarized `.app` zip and a universal CLI binary
+- **GitHub Releases:** an ad-hoc-signed `.app` zip (not notarized) and a universal CLI binary
 - **Not on the App Store:** a sandboxed app can't read `/var/log/appgate`
-- CI on GitHub Actions: build + test on every PR, and tags build, sign, notarize and release
+- CI on GitHub Actions: build + test on every PR, and tags build, ad-hoc sign and release
 
 ## Out of scope
 - Auto-renewing the session (Appgate sign-in needs SSO with you present)
@@ -71,5 +71,4 @@ Not started. `Gatekeepr.app` is ad-hoc signed for now because there's no Develop
 - The README makes clear this is an unofficial tool, not affiliated with Appgate, and works from observed log behaviour
 
 ## Open questions
-- Which GitHub account owns it (personal vs `waadrarii`)? The app's bundle id, `io.github.akramsaouri.gatekeepr`, assumes the personal account. Changing it later resets the app's settings and notification permission
-- Signing identity for notarization: personal Developer ID or Waadrarii's?
+None. Settled 2026-10-12: the repo lives on the personal account (`akramsaouri`), so the bundle id stays `io.github.akramsaouri.gatekeepr`. No Developer ID signing or notarization (see Distribution).
