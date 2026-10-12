@@ -1,0 +1,35 @@
+args: --json --help
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+OVERVIEW: Show the current session: sign-in time, expiry and time left.
+
+USAGE: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+
+OPTIONS:
+  --log-dir <path>        Where Appgate writes driver.log. (default:
+                          /var/log/appgate)
+  --json                  Print JSON instead of text.
+  --short                 Print only the time left, like 6h08m, for statuslines.
+  --warn <duration>       Exit with 1 when this much time or less is left, e.g.
+                          30m, 2h, 1h30m. (default: 30m)
+  --version               Show the version.
+  -h, --help              Show help information.
+
+-- stderr --
+-- swift-stdout --
+OVERVIEW: Show the current session: sign-in time, expiry and time left.
+
+USAGE: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+
+OPTIONS:
+  --log-dir <path>        Where Appgate writes driver.log. (default:
+                          /var/log/appgate)
+  --json                  Print JSON instead of text.
+  --short                 Print only the time left, like 6h08m, for statuslines.
+  --warn <duration>       Exit with 1 when this much time or less is left, e.g.
+                          30m, 2h, 1h30m. (default: 30m)
+  --version               Show the version.
+  -h, --help              Show help information.
+

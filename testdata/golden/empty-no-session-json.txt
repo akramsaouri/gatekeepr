@@ -1,0 +1,23 @@
+args: --log-dir testdata/fixtures/empty --json
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+{
+  "exitCode" : 2,
+  "now" : "2026-10-10T14:00:00+02:00",
+  "sessionLengthLearnedFrom" : 0,
+  "sessionLengthSeconds" : 86400,
+  "state" : "noSession",
+  "warnThresholdSeconds" : 1800
+}
+-- stderr --
+-- swift-stdout --
+{
+  "exitCode" : 2,
+  "now" : "2026-10-10T14:00:00+02:00",
+  "sessionLengthLearnedFrom" : 0,
+  "sessionLengthSeconds" : 86400,
+  "state" : "noSession",
+  "warnThresholdSeconds" : 1800
+}

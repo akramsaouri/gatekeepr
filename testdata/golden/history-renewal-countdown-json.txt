@@ -1,0 +1,39 @@
+args: history --log-dir testdata/fixtures/renewal --json
+now: 2026-09-11T07:31:30Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+{
+  "now" : "2026-09-11T09:31:30+02:00",
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessions" : [
+    {
+      "expiresAt" : "2026-09-11T09:36:26+02:00",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86399,
+      "outcome" : "active",
+      "reconnects" : 4,
+      "start" : "2026-09-10T09:36:27+02:00",
+      "startKind" : "signIn"
+    }
+  ]
+}
+-- stderr --
+-- swift-stdout --
+{
+  "now" : "2026-09-11T09:31:30+02:00",
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessions" : [
+    {
+      "expiresAt" : "2026-09-11T09:36:26+02:00",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86399,
+      "outcome" : "active",
+      "reconnects" : 4,
+      "start" : "2026-09-10T09:36:27+02:00",
+      "startKind" : "signIn"
+    }
+  ]
+}

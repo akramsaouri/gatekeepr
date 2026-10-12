@@ -1,0 +1,11 @@
+args: history --log-dir testdata/fixtures/reconnect
+now: 2026-09-29T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+Start             How      End               Outcome  Length  Reconnects
+Mon 28 Sep 09:21  sign-in  Tue 29 Sep 09:21  expired  24h00m  1
+
+Session length: 24h00m, measured from 1 session.
+Length is sign-in to Appgate's first expiry warning plus the warning's countdown; "-" means no warning was seen.
+-- stderr --

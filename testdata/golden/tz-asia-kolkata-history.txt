@@ -1,0 +1,14 @@
+args: history --log-dir testdata/fixtures/rotation
+now: 2026-10-09T12:00:00Z
+tz: Asia/Kolkata
+exit: 0
+-- stdout --
+Start            How      End              Outcome      Length  Reconnects
+Tue 6 Oct 13:22  sign-in  Wed 7 Oct 11:42  interrupted  -       0
+Wed 7 Oct 11:48  sign-in  Thu 8 Oct 11:48  expired      24h00m  0
+Thu 8 Oct 13:12  sign-in  Fri 9 Oct 13:12  expired      24h00m  1
+Fri 9 Oct 13:25  sign-in  -                active       -       0
+
+Session length: 24h00m, the median of 2 measured sessions.
+Length is sign-in to Appgate's first expiry warning plus the warning's countdown; "-" means no warning was seen.
+-- stderr --

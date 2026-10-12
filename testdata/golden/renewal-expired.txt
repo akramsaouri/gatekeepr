@@ -1,0 +1,10 @@
+args: --log-dir testdata/fixtures/renewal
+now: 2026-09-12T08:00:00Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+Appgate session expired
+  Renewed  Fri 11 Sep 09:31
+  Expired  Sat 12 Sep 09:31 (28m ago)
+  Length   24h00m, the median of 2 measured sessions
+-- stderr --

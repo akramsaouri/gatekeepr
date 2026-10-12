@@ -1,0 +1,18 @@
+args: history --log-dir testdata/fixtures/does-not-exist --json
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 3
+-- stdout --
+{
+  "error" : "can't read the log directory {{CWD}}/testdata/fixtures/does-not-exist: The folder “does-not-exist” doesn’t exist.",
+  "exitCode" : 3,
+  "state" : "error"
+}
+-- stderr --
+gatekeepr: can't read the log directory {{CWD}}/testdata/fixtures/does-not-exist: The folder “does-not-exist” doesn’t exist.
+-- swift-stdout --
+{
+  "error" : "can't read the log directory {{CWD}}/testdata/fixtures/does-not-exist: The folder “does-not-exist” doesn’t exist.",
+  "exitCode" : 3,
+  "state" : "error"
+}

@@ -1,0 +1,7 @@
+args: --log-dir testdata/fixtures/reconnect --short
+now: 2026-09-29T07:18:00Z
+tz: Europe/Stockholm
+exit: 1
+-- stdout --
+3m
+-- stderr --

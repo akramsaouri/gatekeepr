@@ -1,0 +1,35 @@
+args: --log-dir testdata/fixtures/rotation --json
+now: 2026-10-09T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+{
+  "exitCode" : 0,
+  "expiresAt" : "2026-10-10T09:55:33+02:00",
+  "expirySource" : "sessionLength",
+  "now" : "2026-10-09T14:00:00+02:00",
+  "secondsLeft" : 71733,
+  "sessionLengthLearnedFrom" : 2,
+  "sessionLengthSeconds" : 86398,
+  "sessionStart" : "2026-10-09T09:55:35+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "active",
+  "timeLeft" : "19h55m",
+  "warnThresholdSeconds" : 1800
+}
+-- stderr --
+-- swift-stdout --
+{
+  "exitCode" : 0,
+  "expiresAt" : "2026-10-10T09:55:33+02:00",
+  "expirySource" : "sessionLength",
+  "now" : "2026-10-09T14:00:00+02:00",
+  "secondsLeft" : 71733,
+  "sessionLengthLearnedFrom" : 2,
+  "sessionLengthSeconds" : 86398,
+  "sessionStart" : "2026-10-09T09:55:35+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "active",
+  "timeLeft" : "19h55m",
+  "warnThresholdSeconds" : 1800
+}

@@ -1,0 +1,37 @@
+args: --log-dir testdata/fixtures/expired --json
+now: 2026-10-10T08:00:00Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+{
+  "exitCode" : 2,
+  "expiresAt" : "2026-10-10T09:55:34+02:00",
+  "expirySource" : "renewalNotification",
+  "now" : "2026-10-10T10:00:00+02:00",
+  "secondsLeft" : -266,
+  "sessionEnd" : "2026-10-10T09:55:36+02:00",
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessionStart" : "2026-10-09T09:55:35+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "expired",
+  "timeLeft" : "0m",
+  "warnThresholdSeconds" : 1800
+}
+-- stderr --
+-- swift-stdout --
+{
+  "exitCode" : 2,
+  "expiresAt" : "2026-10-10T09:55:34+02:00",
+  "expirySource" : "renewalNotification",
+  "now" : "2026-10-10T10:00:00+02:00",
+  "secondsLeft" : -266,
+  "sessionEnd" : "2026-10-10T09:55:36+02:00",
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessionStart" : "2026-10-09T09:55:35+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "expired",
+  "timeLeft" : "0m",
+  "warnThresholdSeconds" : 1800
+}

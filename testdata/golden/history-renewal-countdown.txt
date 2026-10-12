@@ -1,0 +1,11 @@
+args: history --log-dir testdata/fixtures/renewal
+now: 2026-09-11T07:31:30Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+Start             How      End  Outcome  Length  Reconnects
+Thu 10 Sep 09:36  sign-in  -    active   24h00m  4
+
+Session length: 24h00m, measured from 1 session.
+Length is sign-in to Appgate's first expiry warning plus the warning's countdown; "-" means no warning was seen.
+-- stderr --

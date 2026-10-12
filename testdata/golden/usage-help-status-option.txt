@@ -1,0 +1,9 @@
+args: help status --json
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Unknown option '--json'
+Usage: gatekeepr help [<subcommands> ...]
+-- swift-stdout --

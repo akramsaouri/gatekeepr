@@ -1,0 +1,7 @@
+args: --log-dir=testdata/fixtures/empty=x
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 3
+-- stdout --
+-- stderr --
+gatekeepr: can't read the log directory {{CWD}}/testdata/fixtures/empty=x: The folder “empty=x” doesn’t exist.

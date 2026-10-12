@@ -1,0 +1,7 @@
+args: --log-dir testdata/fixtures/renewal --short
+now: 2026-09-12T08:00:00Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+expired
+-- stderr --

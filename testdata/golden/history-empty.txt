@@ -1,0 +1,7 @@
+args: history --log-dir testdata/fixtures/empty
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+No Appgate sessions found in testdata/fixtures/empty.
+-- stderr --

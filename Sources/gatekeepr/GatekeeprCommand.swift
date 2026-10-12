@@ -28,7 +28,16 @@ struct LogOptions: ParsableArguments {
     var json = false
 
     var gatekeepr: Gatekeepr {
-        Gatekeepr(logDirectory: URL(fileURLWithPath: logDirectory, isDirectory: true))
+        let url = URL(fileURLWithPath: logDirectory, isDirectory: true)
+        // Capture-only clock override, used to record the reference outputs for
+        // the Go port (scripts/capture-swift-reference). Never released.
+        if let text = ProcessInfo.processInfo.environment["GATEKEEPR_NOW"] {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = text.contains(".") ? [.withInternetDateTime, .withFractionalSeconds] : [.withInternetDateTime]
+            guard let now = formatter.date(from: text) else { fatalError("bad GATEKEEPR_NOW \(text)") }
+            return Gatekeepr(logDirectory: url, clock: { now })
+        }
+        return Gatekeepr(logDirectory: url)
     }
 }
 

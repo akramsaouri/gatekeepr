@@ -1,0 +1,9 @@
+args: --log-dir testdata/fixtures/rotation
+now: 2026-10-07T06:15:00Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+Not signed in to Appgate
+  Last session  Tue 6 Oct 09:52
+  Ended         Wed 7 Oct 08:12 (the Appgate driver restarted)
+-- stderr --

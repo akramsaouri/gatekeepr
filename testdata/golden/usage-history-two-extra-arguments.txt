@@ -1,0 +1,9 @@
+args: history a b
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: 2 unexpected arguments: 'a', 'b'
+Usage: gatekeepr history [--log-dir <path>] [--json]
+  See 'gatekeepr history --help' for more information.

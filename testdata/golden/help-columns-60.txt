@@ -1,0 +1,30 @@
+args: --help
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+columns: 60
+exit: 0
+-- stdout --
+OVERVIEW: Shows when your Appgate SDP session expires.
+
+Works it out from Appgate's driver logs, which any user can
+read. No root, no network. Unofficial and not affiliated
+with Appgate.
+
+Exit codes: 0 ok, 1 within the warn window, 2 expired or
+not signed in, 3 logs unreadable or in a format gatekeepr
+doesn't know.
+
+USAGE: gatekeepr <subcommand>
+
+OPTIONS:
+  --version               Show the version.
+  -h, --help              Show help information.
+
+SUBCOMMANDS:
+  status (default)        Show the current session: sign-in
+                          time, expiry and time left.
+  history                 List past sessions with their
+                          measured lengths.
+
+  See 'gatekeepr help <subcommand>' for detailed help.
+-- stderr --

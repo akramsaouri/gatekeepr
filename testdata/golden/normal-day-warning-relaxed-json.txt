@@ -1,0 +1,35 @@
+args: --log-dir testdata/fixtures/normal-day --warn 10m --json
+now: 2026-10-10T07:30:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+{
+  "exitCode" : 0,
+  "expiresAt" : "2026-10-10T09:55:34+02:00",
+  "expirySource" : "sessionLength",
+  "now" : "2026-10-10T09:30:00+02:00",
+  "secondsLeft" : 1534,
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessionStart" : "2026-10-09T09:55:35+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "active",
+  "timeLeft" : "25m",
+  "warnThresholdSeconds" : 600
+}
+-- stderr --
+-- swift-stdout --
+{
+  "exitCode" : 0,
+  "expiresAt" : "2026-10-10T09:55:34+02:00",
+  "expirySource" : "sessionLength",
+  "now" : "2026-10-10T09:30:00+02:00",
+  "secondsLeft" : 1534,
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessionStart" : "2026-10-09T09:55:35+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "active",
+  "timeLeft" : "25m",
+  "warnThresholdSeconds" : 600
+}

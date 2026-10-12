@@ -1,0 +1,9 @@
+args: -=1
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Invalid option: -=1
+Usage: gatekeepr <subcommand>
+  See 'gatekeepr --help' for more information.

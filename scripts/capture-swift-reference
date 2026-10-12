@@ -1,0 +1,273 @@
+#!/bin/bash
+# Records what the Swift CLI (v0.2.1) prints for every case below, as the
+# reference for the Go port: one testdata/golden/<case>.txt per case with the
+# arguments, clock, time zone, exit code, stdout and stderr.
+#
+#   scripts/capture-swift-reference
+#
+# Needs the Swift CLI built with the capture-only GATEKEEPR_NOW clock override
+# (swift build -c release --product gatekeepr). It runs in a scratch copy of
+# testdata/fixtures, and writes {{CWD}} wherever that directory's path shows up
+# (gatekeepr prints absolute paths in some errors).
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+repo=$PWD
+bin="$repo/.build/release/gatekeepr"
+out="$repo/testdata/golden"
+[ -x "$bin" ] || { echo "build the Swift CLI first" >&2; exit 1; }
+
+work=$(mktemp -d /tmp/gatekeepr-capture.XXXXXX)
+trap 'rm -rf "$work"' EXIT
+work=$(cd "$work" && pwd -P)
+mkdir -p "$work/testdata"
+cp -R testdata/fixtures "$work/testdata/fixtures"
+rm -rf "$out"
+mkdir -p "$out"
+
+S=Europe/Stockholm
+F=testdata/fixtures
+default_now=2026-10-10T12:00:00Z
+
+# capture NAME NOW TZ ARGS...  (COLUMNS=N in the environment sets the help width)
+capture() {
+    local name=$1 now=$2 tz=$3
+    shift 3
+    local stdout stderr code columns=${COLUMNS_FOR_CAPTURE:-}
+    stdout=$(mktemp) stderr=$(mktemp)
+    set +e
+    if [ -n "$columns" ]; then
+        (cd "$work" && GATEKEEPR_NOW=$now TZ=$tz COLUMNS=$columns "$bin" "$@" >"$stdout" 2>"$stderr")
+    else
+        (cd "$work" && unset COLUMNS && GATEKEEPR_NOW=$now TZ=$tz "$bin" "$@" >"$stdout" 2>"$stderr")
+    fi
+    code=$?
+    set -e
+    for file in "$stdout" "$stderr"; do
+        if [ -s "$file" ] && [ "$(tail -c 1 "$file" | od -An -c | tr -d ' ')" != '\n' ]; then
+            echo "$name: output doesn't end in a newline" >&2
+            exit 1
+        fi
+    done
+    {
+        echo "args: $*"
+        echo "now: $now"
+        echo "tz: $tz"
+        if [ -n "$columns" ]; then echo "columns: $columns"; fi
+        echo "exit: $code"
+        echo "-- stdout --"
+        sed "s|$work|{{CWD}}|g" "$stdout"
+        echo "-- stderr --"
+        sed "s|$work|{{CWD}}|g" "$stderr"
+        if [[ " $* " == *" --json "* ]]; then
+            # The Go port's JSON gains fields; this keeps the 0.2.1 bytes to
+            # check that nothing else changed.
+            echo "-- swift-stdout --"
+            sed "s|$work|{{CWD}}|g" "$stdout"
+        fi
+    } >"$out/$name.txt"
+    rm -f "$stdout" "$stderr"
+}
+
+# state NAME NOW ARGS...: the status in all three output modes.
+state() {
+    local name=$1 now=$2
+    shift 2
+    capture "$name" "$now" $S "$@"
+    capture "$name-short" "$now" $S "$@" --short
+    capture "$name-json" "$now" $S "$@" --json
+}
+
+# history NAME NOW ARGS...: text and JSON.
+history() {
+    local name=$1 now=$2
+    shift 2
+    capture "history-$name" "$now" $S history "$@"
+    capture "history-$name-json" "$now" $S history "$@" --json
+}
+
+# Every state, from the sanitized fixtures.
+state normal-day-active 2026-10-09T12:00:00Z --log-dir $F/normal-day
+state normal-day-warning 2026-10-10T07:30:00Z --log-dir $F/normal-day
+state normal-day-warning-relaxed 2026-10-10T07:30:00Z --log-dir $F/normal-day --warn 10m
+state normal-day-expired 2026-10-10T09:00:00Z --log-dir $F/normal-day
+state normal-day-first-session 2026-10-08T12:00:00Z --log-dir $F/normal-day
+state normal-day-closed-at-expiry 2026-10-09T07:50:00Z --log-dir $F/normal-day
+state normal-day-before-history 2026-10-01T00:00:00Z --log-dir $F/normal-day
+state reconnect-active 2026-09-29T07:12:30Z --log-dir $F/reconnect --warn 5m
+state reconnect-notice 2026-09-29T07:18:00Z --log-dir $F/reconnect
+state expired-countdown 2026-10-10T07:53:00Z --log-dir $F/expired
+state expired-under-a-minute 2026-10-10T07:55:00Z --log-dir $F/expired
+state expired-before-close 2026-10-10T07:55:35.500Z --log-dir $F/expired
+state expired-after-close 2026-10-10T08:00:00Z --log-dir $F/expired
+state renewal-warning 2026-09-11T07:31:30Z --log-dir $F/renewal
+state renewal-renewed 2026-09-11T12:00:00Z --log-dir $F/renewal
+state renewal-expired 2026-09-12T08:00:00Z --log-dir $F/renewal
+state rotation-active 2026-10-09T12:00:00Z --log-dir $F/rotation
+state rotation-driver-restart 2026-10-07T06:15:00Z --log-dir $F/rotation
+state signed-out-active 2026-09-28T06:50:00Z --log-dir $F/signed-out
+state signed-out-reconnected 2026-09-28T07:03:00Z --log-dir $F/signed-out
+state signed-out-signed-out 2026-09-28T07:07:50Z --log-dir $F/signed-out
+state signed-out-after-driver-stop 2026-09-28T08:00:00Z --log-dir $F/signed-out
+state empty-no-session $default_now --log-dir $F/empty
+state error-unknown-format $default_now --log-dir $F/unknown-format
+state error-missing-dir $default_now --log-dir $F/does-not-exist
+state error-no-log-files $default_now --log-dir $F/no-log-files
+
+history normal-day 2026-10-09T12:00:00Z --log-dir $F/normal-day
+history normal-day-first-session 2026-10-08T12:00:00Z --log-dir $F/normal-day
+history reconnect 2026-09-29T12:00:00Z --log-dir $F/reconnect
+history expired 2026-10-10T08:00:00Z --log-dir $F/expired
+history renewal 2026-09-12T08:00:00Z --log-dir $F/renewal
+history renewal-countdown 2026-09-11T07:31:30Z --log-dir $F/renewal
+history rotation 2026-10-09T12:00:00Z --log-dir $F/rotation
+history signed-out 2026-09-28T08:00:00Z --log-dir $F/signed-out
+history empty $default_now --log-dir $F/empty
+history error-unknown-format $default_now --log-dir $F/unknown-format
+history error-missing-dir $default_now --log-dir $F/does-not-exist
+history error-no-log-files $default_now --log-dir $F/no-log-files
+
+# Other time zones: whole-hour, negative and half-hour offsets, and UTC.
+for tz in UTC America/Los_Angeles Asia/Kolkata; do
+    slug=$(echo "$tz" | tr 'A-Z/_' 'a-z--')
+    capture "tz-$slug-active" 2026-10-09T12:00:00Z "$tz" --log-dir $F/normal-day
+    capture "tz-$slug-active-json" 2026-10-09T12:00:00Z "$tz" --log-dir $F/normal-day --json
+    capture "tz-$slug-history" 2026-10-09T12:00:00Z "$tz" history --log-dir $F/rotation
+    capture "tz-$slug-history-json" 2026-10-09T12:00:00Z "$tz" history --log-dir $F/rotation --json
+done
+
+# Option forms.
+w=2026-10-10T07:30:00Z
+capture option-warn-equals $w $S --log-dir $F/normal-day --warn=45m
+capture option-warn-seconds $w $S --log-dir $F/normal-day --warn 45s
+capture option-warn-combined $w $S --log-dir $F/normal-day --warn 1h30m15s
+capture option-warn-zero $w $S --log-dir $F/normal-day --warn 0m
+capture option-warn-uppercase $w $S --log-dir $F/normal-day --warn 1H
+capture option-warn-repeated $w $S --log-dir $F/normal-day --warn 1h --warn 5m
+capture option-json-repeated $w $S --log-dir $F/normal-day --json --json
+capture option-short-repeated $w $S --log-dir $F/normal-day --short --short
+capture option-log-dir-equals $w $S --log-dir=$F/normal-day
+capture option-log-dir-repeated $w $S --log-dir $F/empty --log-dir $F/normal-day
+capture option-log-dir-trailing-slash $default_now $S --log-dir $F/empty/
+capture option-log-dir-dot-dot $default_now $S --log-dir ./testdata/../$F/nope
+capture option-flags-first $w $S --short --log-dir $F/normal-day
+capture option-explicit-status $w $S status --log-dir $F/normal-day
+capture option-explicit-status-json $w $S status --json --log-dir $F/normal-day
+capture option-history-log-dir-equals 2026-10-09T12:00:00Z $S history --log-dir=$F/normal-day
+
+# Help, version and usage errors.
+capture help-long $default_now $S --help
+capture help-short $default_now $S -h
+capture help-subcommand $default_now $S help
+capture help-subcommand-status $default_now $S help status
+capture help-subcommand-history $default_now $S help history
+capture help-subcommand-unknown $default_now $S help bogus
+capture help-status-long $default_now $S status --help
+capture help-status-short $default_now $S status -h
+capture help-history-long $default_now $S history --help
+capture help-history-short $default_now $S history -h
+capture help-after-options $default_now $S --json --help
+capture help-after-unknown-option $default_now $S --bogus --help
+capture version $default_now $S --version
+capture version-status $default_now $S status --version
+capture version-history $default_now $S history --version
+capture version-after-options $default_now $S --json --version
+capture usage-json-and-short $default_now $S --json --short
+capture usage-short-and-json $default_now $S --log-dir $F/normal-day --short --json
+capture usage-warn-invalid $default_now $S --warn abc
+capture usage-warn-missing-value $default_now $S --warn
+capture usage-warn-negative $default_now $S --warn -5m
+capture usage-warn-empty $default_now $S --warn=
+capture usage-unknown-long-option $default_now $S --bogus
+capture usage-unknown-short-option $default_now $S -x
+capture usage-status-unknown-option $default_now $S status --bogus
+capture usage-history-short $default_now $S history --short
+capture usage-history-warn $default_now $S history --warn 1h
+capture usage-extra-argument $default_now $S extra
+capture usage-status-extra-argument $default_now $S status extra
+capture usage-history-extra-argument $default_now $S history extra
+capture usage-log-dir-missing-value $default_now $S --log-dir
+capture usage-json-with-value $default_now $S --json=true
+capture usage-double-dash $default_now $S -- extra
+capture usage-subcommand-typo $default_now $S stauts
+capture usage-subcommand-after-options $default_now $S --json history
+
+# Typo suggestions ("Did you mean ...?") and which error wins.
+for typo in --hepl --verison --jsno --jason --shor --warm --log-di --logdir --lg-dir --j --s --sh; do
+    capture "usage-typo$typo" $default_now $S "$typo"
+    capture "usage-history-typo$typo" $default_now $S history "$typo"
+done
+capture usage-single-dash-long $default_now $S -json
+capture usage-unknown-with-value $default_now $S --bogus=1
+capture usage-help-with-value $default_now $S --help=1
+capture usage-version-with-value $default_now $S --version=1
+capture usage-combined-short $default_now $S -hx
+capture usage-empty-warn $default_now $S --warn ''
+capture usage-warn-invalid-units $default_now $S --warn 1d
+capture usage-log-dir-dash $default_now $S --log-dir -
+capture usage-unknown-then-extra $default_now $S --bogus extra
+capture usage-extra-then-unknown $default_now $S extra --bogus
+capture usage-invalid-then-unknown $default_now $S --warn abc --bogus
+capture usage-unknown-then-invalid $default_now $S --bogus --warn abc
+capture usage-conflict-then-unknown $default_now $S --json --short --bogus
+capture usage-invalid-then-conflict $default_now $S --warn abc --json --short
+capture usage-missing-then-unknown $default_now $S --bogus --warn
+capture usage-help-extra $default_now $S help status extra
+capture usage-help-with-option $default_now $S help --json
+capture usage-history-help-subcommand $default_now $S history help
+capture usage-status-status $default_now $S status status
+capture usage-help-then-version $default_now $S --help --version
+capture usage-version-then-help $default_now $S --version --help
+capture usage-extra-then-help $default_now $S extra --help
+capture usage-extra-then-version $default_now $S extra --version
+capture usage-conflict-then-help $default_now $S --json --short --help
+capture usage-invalid-then-help $default_now $S --warn abc --help
+capture usage-missing-value-help $default_now $S --warn --help
+capture usage-unknown-then-version $default_now $S --bogus --version
+capture usage-two-extra-arguments $default_now $S a b
+capture usage-three-extra-arguments $default_now $S a b c
+capture usage-history-two-extra-arguments $default_now $S history a b
+capture usage-two-unknown-options $default_now $S --foo --bar
+capture usage-single-dash-help $default_now $S -help
+capture usage-log-dir-terminator $default_now $S --log-dir --
+capture usage-terminator-option $default_now $S -- --json
+capture usage-terminator-help $default_now $S -- --help
+capture usage-option-terminator-extra $default_now $S --json -- extra
+capture usage-help-before-subcommand $default_now $S -h status
+capture usage-help-before-history $default_now $S -h history
+capture usage-options-then-help $default_now $S --json -h
+capture usage-help-help $default_now $S help help
+capture usage-help-short-flag $default_now $S help -h
+capture usage-help-long-flag $default_now $S help --help
+capture usage-help-status-option $default_now $S help status --json
+capture usage-help-nested $default_now $S help history status
+capture usage-help-version $default_now $S help --version
+capture usage-short-group-unknown $default_now $S -xy
+capture usage-short-group-suggestion $default_now $S -js
+capture usage-log-dir-empty $default_now $S --log-dir=
+capture usage-short-help-with-value $default_now $S -h=1
+capture usage-version-extra $default_now $S --version extra
+capture option-log-dir-with-equals $default_now $S --log-dir=$F/empty=x
+capture option-json-empty-value 2026-10-09T12:00:00Z $S --log-dir $F/normal-day --json=
+capture usage-help-hidden $default_now $S --help-hidden
+capture usage-help-hidden-short $default_now $S -hh
+capture usage-status-help-hidden $default_now $S status --help-hidden
+capture usage-history-help-hidden $default_now $S history --help-hidden
+capture usage-help-command-help-hidden $default_now $S help --help-hidden
+capture usage-invalid-triple-dash-name $default_now $S ---x
+capture usage-invalid-triple-dash $default_now $S ---
+capture usage-invalid-empty-short-name $default_now $S -=1
+capture usage-empty-long-name $default_now $S --=1
+capture usage-invalid-after-valid $default_now $S --json ---x
+
+# Help wraps to the terminal width (COLUMNS, else the terminal, else 80).
+for columns in 20 40 60 120; do
+    COLUMNS_FOR_CAPTURE=$columns capture "help-columns-$columns" $default_now $S --help
+    COLUMNS_FOR_CAPTURE=$columns capture "help-status-columns-$columns" $default_now $S status --help
+    COLUMNS_FOR_CAPTURE=$columns capture "help-history-columns-$columns" $default_now $S history --help
+    COLUMNS_FOR_CAPTURE=$columns capture "help-help-columns-$columns" $default_now $S help help
+done
+COLUMNS_FOR_CAPTURE=40 capture usage-columns-40 $default_now $S --warn abc
+
+ls "$out" | wc -l | tr -d ' '

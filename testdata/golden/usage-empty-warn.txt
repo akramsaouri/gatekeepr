@@ -1,0 +1,10 @@
+args: --warn 
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: The value '' is invalid for '--warn <duration>'
+Help:  --warn <duration>  Exit with 1 when this much time or less is left, e.g. 30m, 2h, 1h30m.
+Usage: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+  See 'gatekeepr status --help' for more information.

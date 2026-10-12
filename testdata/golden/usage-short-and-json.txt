@@ -1,0 +1,10 @@
+args: --log-dir testdata/fixtures/normal-day --short --json
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: --json and --short can't be used together.
+Usage: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+  See 'gatekeepr status --help' for more information.
+-- swift-stdout --

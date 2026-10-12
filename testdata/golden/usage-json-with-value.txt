@@ -1,0 +1,9 @@
+args: --json=true
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: The option '--json' does not take any value, but 'true' was specified.
+Usage: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+  See 'gatekeepr status --help' for more information.

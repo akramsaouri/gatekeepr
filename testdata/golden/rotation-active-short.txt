@@ -1,0 +1,7 @@
+args: --log-dir testdata/fixtures/rotation --short
+now: 2026-10-09T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+19h55m
+-- stderr --
