@@ -1,4 +1,4 @@
-args: --warn 
+args: --warn ''
 now: 2026-10-10T12:00:00Z
 tz: Europe/Stockholm
 exit: 64

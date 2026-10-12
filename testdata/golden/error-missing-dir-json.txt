@@ -6,6 +6,7 @@ exit: 3
 {
   "error" : "can't read the log directory {{CWD}}/testdata/fixtures/does-not-exist: The folder “does-not-exist” doesn’t exist.",
   "exitCode" : 3,
+  "schemaVersion" : 1,
   "state" : "error"
 }
 -- stderr --

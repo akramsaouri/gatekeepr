@@ -6,8 +6,10 @@ exit: 2
 {
   "exitCode" : 2,
   "now" : "2026-10-01T02:00:00+02:00",
+  "schemaVersion" : 1,
   "sessionLengthLearnedFrom" : 0,
   "sessionLengthSeconds" : 86400,
+  "sessionLengthSource" : "default",
   "state" : "noSession",
   "warnThresholdSeconds" : 1800
 }

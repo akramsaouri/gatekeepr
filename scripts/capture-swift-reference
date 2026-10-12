@@ -51,7 +51,7 @@ capture() {
         fi
     done
     {
-        echo "args: $*"
+        echo "args: $(printf '%q ' "$@" | sed 's/ $//')"
         echo "now: $now"
         echo "tz: $tz"
         if [ -n "$columns" ]; then echo "columns: $columns"; fi

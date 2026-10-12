@@ -5,8 +5,10 @@ exit: 0
 -- stdout --
 {
   "now" : "2026-10-09T14:00:00+02:00",
+  "schemaVersion" : 1,
   "sessionLengthLearnedFrom" : 1,
   "sessionLengthSeconds" : 86399,
+  "sessionLengthSource" : "median",
   "sessions" : [
     {
       "end" : "2026-10-09T09:42:22+02:00",
