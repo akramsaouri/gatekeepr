@@ -13,10 +13,80 @@ then everything behind the VPN stops working. gatekeepr reads the driver logs
 in `/var/log/appgate`, which any user can read, and tells you when that will
 happen. It needs no root and makes no network calls.
 
-Status: Milestone 2 (menu bar app), on top of Milestone 1 (core library + CLI).
-See [docs/SCOPE.md](docs/SCOPE.md).
+Status: Milestone 3 (GitHub Releases), on top of the menu bar app (Milestone 2)
+and the core library + CLI (Milestone 1). See [docs/SCOPE.md](docs/SCOPE.md).
 
-## Install from source
+## Install
+
+gatekeepr needs macOS 13 or later, on Apple silicon or Intel. Every
+[release](https://github.com/akramsaouri/gatekeepr/releases/latest) has:
+
+| File | What it is |
+|---|---|
+| `Gatekeepr-<version>.zip` | The menu bar app |
+| `gatekeepr-<version>-macos-universal.tar.gz` | The CLI, with the licence and this README |
+| `SHA256SUMS` | SHA-256 checksums of both |
+
+Both are universal binaries (arm64 and x86_64), ad-hoc signed and not notarized.
+
+### Menu bar app
+
+1. Download `Gatekeepr-<version>.zip` and `SHA256SUMS` from the
+   [latest release](https://github.com/akramsaouri/gatekeepr/releases/latest).
+2. Check the download. In the folder you saved both files to:
+
+   ```sh
+   shasum -a 256 -c --ignore-missing SHA256SUMS
+   ```
+
+   It should print `Gatekeepr-<version>.zip: OK`. Anything else means a
+   corrupted or tampered download: delete it and don't open it.
+3. Double-click the zip to unpack it, and move `Gatekeepr.app` to Applications.
+4. Open it. The first time, macOS blocks it:
+
+> **Not notarized, by choice.** The app is ad-hoc signed only, with no Developer
+> ID and no notarization. A copy you built yourself runs as is. A downloaded copy
+> is blocked by Gatekeeper the first time you open it ("Apple could not verify…").
+> To allow it once:
+>
+> 1. Open `Gatekeepr.app` and dismiss the warning.
+> 2. Go to **System Settings › Privacy & Security**, scroll to **Security**, and
+>    click **Open Anyway** next to the Gatekeepr message.
+> 3. Open the app again and confirm.
+>
+> On macOS 14 and earlier, right-click the app in Finder and choose **Open**
+> instead. Or clear the quarantine flag from a terminal:
+> `xattr -dr com.apple.quarantine /Applications/Gatekeepr.app`.
+
+See [Menu bar app](#menu-bar-app) for what it does.
+
+### CLI
+
+```sh
+version=0.2.0
+base=https://github.com/akramsaouri/gatekeepr/releases/download/v$version
+curl -fLO "$base/gatekeepr-$version-macos-universal.tar.gz"
+curl -fLO "$base/SHA256SUMS"
+shasum -a 256 -c --ignore-missing SHA256SUMS
+tar -xzf "gatekeepr-$version-macos-universal.tar.gz"
+sudo install "gatekeepr-$version-macos-universal/gatekeepr" /usr/local/bin/
+gatekeepr --version
+```
+
+Or put `gatekeepr` anywhere else on your `PATH`. With the
+[GitHub CLI](https://cli.github.com), the two downloads are
+`gh release download --repo akramsaouri/gatekeepr --pattern 'gatekeepr-*' --pattern SHA256SUMS`.
+
+`curl` and `gh` don't mark what they download as quarantined, so the binary
+runs straight away. If you download the tarball in a browser instead, macOS
+quarantines it, carries that over to the unpacked binary, and refuses to run
+it. Clear the flag before you install it:
+
+```sh
+xattr -d com.apple.quarantine "gatekeepr-$version-macos-universal/gatekeepr"
+```
+
+### Build from source
 
 You need macOS 13 or later and Swift 5.9 or later (Xcode 15+, or the Command
 Line Tools).
@@ -28,9 +98,7 @@ swift build -c release
 sudo install .build/release/gatekeepr /usr/local/bin/
 ```
 
-Or put `.build/release/gatekeepr` anywhere else on your `PATH`.
-
-For the menu bar app, see [Menu bar app](#menu-bar-app).
+For the menu bar app, see [Build the app](#build-the-app).
 
 ## Usage
 
@@ -147,22 +215,10 @@ scripts/build-app
 open build/Gatekeepr.app        # or move it to /Applications first
 ```
 
-The script builds a release binary, wraps it in `build/Gatekeepr.app` and signs
-it ad hoc.
-
-> **Not notarized, by choice.** The app is ad-hoc signed only, with no Developer
-> ID and no notarization. A copy you built yourself runs as is. A downloaded copy
-> is blocked by Gatekeeper the first time you open it ("Apple could not verify…").
-> To allow it once:
->
-> 1. Open `Gatekeepr.app` and dismiss the warning.
-> 2. Go to **System Settings › Privacy & Security**, scroll to **Security**, and
->    click **Open Anyway** next to the Gatekeepr message.
-> 3. Open the app again and confirm.
->
-> On macOS 14 and earlier, right-click the app in Finder and choose **Open**
-> instead. Or clear the quarantine flag from a terminal:
-> `xattr -dr com.apple.quarantine /Applications/Gatekeepr.app`.
+The script builds a release binary for your Mac, wraps it in
+`build/Gatekeepr.app` and signs it ad hoc. `scripts/build-app --universal`
+builds for both arm64 and x86_64, as the releases do. A copy you built yourself
+isn't quarantined, so it opens without the Open Anyway step.
 
 To point the app at a different log directory (like the CLI's `--log-dir`):
 
@@ -247,3 +303,30 @@ Core tests run against sanitized excerpts of real logs in
 write small synthetic logs and go through the same parser. Never commit raw
 logs: `.gitignore` blocks `*.log` and `*.log.gz` outside the fixtures directory,
 and CI runs `scripts/sanitize-log --check` over the fixtures.
+
+### Releasing
+
+Releases are built by GitHub Actions
+([`release.yml`](.github/workflows/release.yml)) when a `v*` tag is pushed:
+
+1. Set the version in `Sources/GatekeeprCore/Version.swift`. It's the only
+   place it lives: `gatekeepr --version` prints it and `scripts/build-app`
+   copies it into the app's Info.plist.
+2. Merge that to `main`, then tag the merge commit and push the tag:
+   `git tag v0.3.0 && git push origin v0.3.0`.
+
+The workflow runs the tests and the fixture check, builds both universal
+binaries with `scripts/build-release`, and runs `scripts/check-release`, which
+fails unless the tag, `Version.swift`, `gatekeepr --version` and the app's
+`CFBundleShortVersionString` all agree and both binaries have arm64 and x86_64
+slices (`lipo -archs`). Only then does it publish the release, with notes listing
+the commits since the previous tag. It uploads to a draft first, so a failed run
+never leaves a half-published release.
+
+CI runs the same two scripts on every pull request, so you can try them
+locally too:
+
+```sh
+scripts/build-release          # writes dist/
+scripts/check-release dist v0.3.0
+```

@@ -1,0 +1,99 @@
+name: Release
+
+# Push a tag like v0.2.0 to release. The tag has to match the version in
+# Sources/GatekeeprCore/Version.swift, or nothing is published.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The release notes list the commits since the previous tag.
+          fetch-depth: 0
+          # The token with write access is only handed to the steps that publish.
+          persist-credentials: false
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Test
+        run: swift test
+
+      - name: Check fixtures are sanitized
+        run: scripts/sanitize-log --check Tests/GatekeeprCoreTests/Fixtures
+
+      # The universal CLI and Gatekeepr.app, signed ad hoc and packaged into
+      # dist/ with SHA256SUMS.
+      - name: Build release files
+        run: scripts/build-release
+
+      # Fails unless the tag, Version.swift, gatekeepr --version and the app's
+      # CFBundleShortVersionString all agree. Also checks lipo -archs on both
+      # binaries, the signatures and the checksums.
+      - name: Check release files
+        run: scripts/check-release dist "$GITHUB_REF_NAME"
+
+      - name: Write release notes
+        run: |
+          tag=$GITHUB_REF_NAME
+          repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "$tag^" 2>/dev/null || true)
+          {
+            echo "> **Not notarized, by choice.** Gatekeepr.app is ad-hoc signed only, so macOS blocks a downloaded copy the first time you open it. See [Install]($repo_url#install) in the README for the one-time **Open Anyway**."
+            echo
+            if [ -n "$prev" ]; then
+              echo "## Changes since $prev"
+            else
+              echo "## Changes"
+            fi
+            echo
+            git log --no-merges --format='- %s' "${prev:+$prev..}$tag"
+            echo
+            echo "Check a download with \`shasum -a 256 -c --ignore-missing SHA256SUMS\`."
+            if [ -n "$prev" ]; then
+              echo
+              echo "**Full changelog:** $repo_url/compare/$prev...$tag"
+            fi
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      # A draft first, with every file attached, then published: a failed upload
+      # never leaves a half-published release.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag=$GITHUB_REF_NAME
+          version=${tag#v}
+          prerelease=""
+          case "$version" in *-*) prerelease="--prerelease" ;; esac
+          # shellcheck disable=SC2086 # prerelease is empty or one flag
+          gh release create "$tag" --draft --verify-tag $prerelease \
+            --title "gatekeepr $version" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            "dist/Gatekeepr-$version.zip" \
+            "dist/gatekeepr-$version-macos-universal.tar.gz" \
+            dist/SHA256SUMS
+          gh release edit "$tag" --draft=false
+
+      # Only ever deletes a draft this run left behind, never a published release.
+      - name: Delete the draft if publishing failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null)" = true ]; then
+            gh release delete "$GITHUB_REF_NAME" --yes
+          fi

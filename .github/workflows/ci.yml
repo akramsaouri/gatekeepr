@@ -24,15 +24,12 @@ jobs:
       - name: Check fixtures are sanitized
         run: scripts/sanitize-log --check Tests/GatekeeprCoreTests/Fixtures
 
-      - name: Build Gatekeepr.app
-        run: scripts/build-app
+      # What a release ships: the universal CLI and Gatekeepr.app, packaged into
+      # dist/ exactly as the release workflow does it on a tag.
+      - name: Build release files
+        run: scripts/build-release
 
-      - name: Check Gatekeepr.app
-        run: |
-          app=build/Gatekeepr.app
-          plist="$app/Contents/Info.plist"
-          test -x "$app/Contents/MacOS/Gatekeepr"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" = io.github.akramsaouri.gatekeepr
-          test "$(/usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$plist")" = true
-          codesign --verify --strict --verbose=2 "$app"
-          codesign -dv "$app" 2>&1 | grep -q 'Signature=adhoc'
+      # Checksums, lipo -archs on both binaries, the ad-hoc signatures, the
+      # app's Info.plist, and that every version agrees.
+      - name: Check release files
+        run: scripts/check-release
