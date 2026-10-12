@@ -31,8 +31,8 @@ struct MenuContent: View {
             }
         }
         .pickerStyle(.menu)
-        if notifier.isDenied {
-            Button("Turn On Notifications…", action: notifier.openSettings)
+        if notifier.needsPermission {
+            Button("Turn On Notifications…", action: notifier.fixPermission)
         }
         Toggle(loginItem.isAvailable ? "Launch at Login" : "Launch at Login (needs Gatekeepr.app)", isOn: Binding(
             get: { loginItem.isEnabled },

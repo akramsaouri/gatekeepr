@@ -6,8 +6,10 @@ import UserNotifications
 /// Clicking one opens Appgate SDP.
 @MainActor
 final class UserNotifier: NSObject, ObservableObject, SessionNotifier, UNUserNotificationCenterDelegate {
-    /// The user turned notifications off for Gatekeepr; the menu offers a way back.
-    @Published private(set) var isDenied = false
+    /// Notifications can't be shown: the user turned them off, or hasn't
+    /// answered the permission prompt yet. The menu offers a way to fix it.
+    @Published private(set) var needsPermission = false
+    private var status: UNAuthorizationStatus = .authorized
     var onOpen: (() -> Void)?
 
     /// Nil outside the app bundle, where UNUserNotificationCenter can't be used.
@@ -32,15 +34,23 @@ final class UserNotifier: NSObject, ObservableObject, SessionNotifier, UNUserNot
 
     func refresh() {
         center?.getNotificationSettings { [weak self] settings in
-            let denied = settings.authorizationStatus == .denied
+            let status = settings.authorizationStatus
             Task { @MainActor in
-                guard let self, self.isDenied != denied else { return }
-                self.isDenied = denied
+                guard let self else { return }
+                self.status = status
+                let needed = status == .denied || status == .notDetermined
+                if self.needsPermission != needed { self.needsPermission = needed }
             }
         }
     }
 
-    func openSettings() {
+    /// Asks again if the prompt was never answered; otherwise only System
+    /// Settings can turn notifications back on.
+    func fixPermission() {
+        if status == .notDetermined {
+            requestAuthorization()
+            return
+        }
         let id = Bundle.main.bundleIdentifier ?? ""
         if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {
             NSWorkspace.shared.open(url)

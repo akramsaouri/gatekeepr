@@ -45,12 +45,17 @@ enum StatusItemImage {
 
         init(_ tone: MenuState.Tone) {
             switch tone {
-            case .ok: (symbol, color) = ("clock", nil)
-            case .warning: (symbol, color) = ("hourglass", .systemOrange)
-            case .expired: (symbol, color) = ("xmark.circle.fill", .systemRed)
-            case .signedOut: (symbol, color) = ("xmark.circle", nil)
-            case .error: (symbol, color) = ("exclamationmark.triangle.fill", .systemRed)
+            case .ok: self.init(symbol: "clock", color: nil)
+            case .warning: self.init(symbol: "hourglass", color: .systemOrange)
+            case .expired: self.init(symbol: "xmark.circle.fill", color: .systemRed)
+            case .signedOut: self.init(symbol: "xmark.circle", color: nil)
+            case .error: self.init(symbol: "exclamationmark.triangle.fill", color: .systemRed)
             }
+        }
+
+        init(symbol: String, color: NSColor?) {
+            self.symbol = symbol
+            self.color = color
         }
     }
 }

@@ -124,7 +124,7 @@ final class MenuStateTests: XCTestCase {
     func testUnparseableLogIsAnErrorNotAGuess() throws {
         let directory = try TemporaryDirectory()
         try directory.write("driver.log", lines: twoSessions + ["2026-10-09 08:00:00 INFO something new"])
-        let error = try XCTUnwrap(Result { try analyze(directory.url, at: "2026-10-09T13:00:00Z") }.failure)
+        let error = try XCTUnwrap(Result { try analyze(directory.url, at: "2026-10-09T13:00:00Z") }.error)
         let state = MenuState(error: error)
 
         XCTAssertEqual(state.tone, .error)
@@ -139,7 +139,7 @@ final class MenuStateTests: XCTestCase {
 
     func testMissingLogDirectoryIsAnError() throws {
         let missing = URL(fileURLWithPath: "/nonexistent/appgate", isDirectory: true)
-        let error = try XCTUnwrap(Result { try Gatekeepr(logDirectory: missing).analyze() }.failure)
+        let error = try XCTUnwrap(Result { try Gatekeepr(logDirectory: missing).analyze() }.error)
         let state = MenuState(error: error)
 
         XCTAssertEqual(state.tone, .error)
@@ -180,7 +180,7 @@ final class MenuStateTests: XCTestCase {
 }
 
 extension Result {
-    var failure: Failure? {
+    var error: Failure? {
         if case let .failure(error) = self { return error }
         return nil
     }

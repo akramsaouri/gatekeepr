@@ -36,8 +36,9 @@ public struct MenuState: Equatable {
     /// Menu items don't wrap, so long error messages are split at this width.
     static let lineWidth = 64
 
+    /// Before the first read, which takes well under a second.
     public static let loading = MenuState(
-        tone: .signedOut, title: "…", accessibilityLabel: "Gatekeepr: reading the Appgate logs",
+        tone: .ok, title: "…", accessibilityLabel: "Gatekeepr: reading the Appgate logs",
         heading: "Reading the Appgate logs…", details: [], history: []
     )
 
