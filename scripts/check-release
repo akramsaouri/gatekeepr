@@ -11,6 +11,8 @@
 # internal/cli/cli.go fails before anything is published.
 
 set -eu
+# The file lists below are compared sorted, so sort the same everywhere.
+export LC_ALL=C
 
 cd "$(dirname "$0")/.."
 
