@@ -2,8 +2,8 @@ import Foundation
 import GatekeeprCore
 
 /// A notification about the current session.
-public struct SessionNotification: Equatable {
-    public enum Kind: String, Equatable {
+public struct SessionNotification: Equatable, Sendable {
+    public enum Kind: String, Equatable, Sendable {
         /// The session entered the warn window.
         case warning
         case expired
@@ -22,7 +22,7 @@ public struct SessionNotification: Equatable {
 
 /// Which session each kind of notification was last sent for. Persisted, so
 /// relaunching the app doesn't send them again.
-public struct NotificationLedger: Equatable {
+public struct NotificationLedger: Equatable, Sendable {
     public var warnedSession: Date?
     public var expiredSession: Date?
 

@@ -15,7 +15,9 @@ enum StatusItemImage {
 
         var configuration = NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .regular)
         if let color = style.color {
-            configuration = configuration.applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+            // Filled symbols have two layers: a white glyph on the coloured shape.
+            let palette = style.symbol.hasSuffix(".fill") ? [NSColor.white, color] : [color]
+            configuration = configuration.applying(NSImage.SymbolConfiguration(paletteColors: palette))
         }
         let symbol = NSImage(systemSymbolName: style.symbol, accessibilityDescription: nil)?
             .withSymbolConfiguration(configuration)

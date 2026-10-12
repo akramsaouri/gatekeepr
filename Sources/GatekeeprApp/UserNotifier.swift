@@ -20,8 +20,12 @@ final class UserNotifier: NSObject, ObservableObject, SessionNotifier, UNUserNot
     }
 
     func requestAuthorization() {
-        center?.requestAuthorization(options: [.alert, .sound]) { [weak self] _, error in
-            if let error { Log.app.error("Notification permission request failed: \(error.localizedDescription)") }
+        center?.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
+            if let error {
+                Log.app.error("Notification permission request failed: \(error.localizedDescription, privacy: .public)")
+            } else {
+                Log.app.notice("Notifications allowed: \(granted, privacy: .public)")
+            }
             Task { @MainActor in self?.refresh() }
         }
     }
@@ -51,7 +55,11 @@ final class UserNotifier: NSObject, ObservableObject, SessionNotifier, UNUserNot
         content.sound = .default
         let request = UNNotificationRequest(identifier: notification.identifier, content: content, trigger: nil)
         center.add(request) { error in
-            if let error { Log.app.error("Couldn't post a notification: \(error.localizedDescription)") }
+            if let error {
+                Log.app.error("Couldn't post the \(notification.kind.rawValue, privacy: .public) notification: \(error.localizedDescription, privacy: .public)")
+            } else {
+                Log.app.notice("Posted the \(notification.kind.rawValue, privacy: .public) notification")
+            }
         }
     }
 

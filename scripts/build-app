@@ -1,0 +1,99 @@
+#!/bin/sh
+# Builds Gatekeepr.app, the menu bar app.
+#
+#   scripts/build-app             # writes build/Gatekeepr.app
+#   scripts/build-app OUT_DIR     # writes OUT_DIR/Gatekeepr.app
+#
+# SwiftPM can only build the binary, so this wraps it in an app bundle with an
+# Info.plist and signs it. For now the signature is ad hoc: see "Signing" below.
+#
+# The app isn't sandboxed and can't be: it reads /var/log/appgate, which a
+# sandboxed app has no access to.
+
+set -eu
+
+cd "$(dirname "$0")/.."
+
+out_dir="${1:-build}"
+app="$out_dir/Gatekeepr.app"
+bundle_id="io.github.akramsaouri.gatekeepr"
+version=$(sed -n 's/.*static let version = "\(.*\)".*/\1/p' Sources/GatekeeprCore/Version.swift)
+if [ -z "$version" ]; then
+    echo "build-app: can't read the version from Sources/GatekeeprCore/Version.swift" >&2
+    exit 1
+fi
+
+echo "==> Building GatekeeprApp $version (release)"
+swift build -c release --product GatekeeprApp
+bin_dir=$(swift build -c release --show-bin-path)
+
+echo "==> Assembling $app"
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp "$bin_dir/GatekeeprApp" "$app/Contents/MacOS/Gatekeepr"
+
+# LSUIElement: a menu bar app, with no Dock icon or app menu.
+# NSUserNotificationAlertStyle: the expiry warning stays on screen until it's
+# dismissed, rather than sliding away as a banner. Users can change it in
+# System Settings › Notifications.
+cat > "$app/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Gatekeepr</string>
+    <key>CFBundleExecutable</key>
+    <string>Gatekeepr</string>
+    <key>CFBundleIdentifier</key>
+    <string>$bundle_id</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Gatekeepr</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$version</string>
+    <key>CFBundleVersion</key>
+    <string>$version</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>MIT licence. Unofficial; not affiliated with Appgate.</string>
+    <key>NSUserNotificationAlertStyle</key>
+    <string>alert</string>
+</dict>
+</plist>
+EOF
+plutil -lint -s "$app/Contents/Info.plist"
+
+# Signing
+#
+# TODO(signing): there is no Developer ID certificate yet, so the app is signed
+# ad hoc ("-"). It runs on the Mac that built it; anywhere else Gatekeeper
+# blocks it until the user right-clicks it and picks Open. Once there is a
+# certificate, set GATEKEEPR_SIGN_IDENTITY to "Developer ID Application: …"
+# and notarize (see TODO(notarization) below). The hardened runtime is already
+# on, since notarization requires it.
+identity="${GATEKEEPR_SIGN_IDENTITY:--}"
+if [ "$identity" = "-" ]; then
+    echo "==> Signing ad hoc (no Developer ID yet)"
+    codesign --force --options runtime --sign - "$app"
+else
+    echo "==> Signing as $identity"
+    codesign --force --options runtime --timestamp --sign "$identity" "$app"
+    # TODO(notarization): submit and staple, e.g.
+    #   ditto -c -k --keepParent "$app" "$out_dir/Gatekeepr.zip"
+    #   xcrun notarytool submit "$out_dir/Gatekeepr.zip" --keychain-profile <profile> --wait
+    #   xcrun stapler staple "$app"
+fi
+codesign --verify --strict "$app"
+
+echo "==> $app"

@@ -21,7 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         notifier = UserNotifier(enabled: bundled)
         loginItem = LoginItem(enabled: bundled)
-        model = StatusModel(notifier: notifier)
+        let preferences = Preferences()
+        model = StatusModel(logDirectory: preferences.logDirectory, preferences: preferences, notifier: notifier)
         super.init()
         notifier.onOpen = { [weak self] in self?.openAppgate() }
         model.onEvaluate = { [weak self] in

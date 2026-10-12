@@ -11,6 +11,7 @@ public final class Preferences {
     static let warnThresholdRange: ClosedRange<TimeInterval> = 60...(24 * 60 * 60)
 
     enum Key {
+        static let logDirectory = "logDirectory"
         static let warnThreshold = "warnThresholdSeconds"
         static let warnedSession = "warningSentForSessionStartingAt"
         static let expiredSession = "expiryNoticeSentForSessionStartingAt"
@@ -20,6 +21,15 @@ public final class Preferences {
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+    }
+
+    /// Where to read the logs: `/var/log/appgate` unless overridden, like the
+    /// CLI's `--log-dir`, for testing and odd installs. There's no UI for it:
+    /// `defaults write <bundle id> logDirectory <path>`, or for one run
+    /// `open Gatekeepr.app --args -logDirectory <path>`.
+    public var logDirectory: URL {
+        guard let path = defaults.string(forKey: Key.logDirectory), !path.isEmpty else { return LogDirectory.appgateDefault }
+        return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
     }
 
     /// 30 minutes unless set; values outside a minute to a day fall back to that.

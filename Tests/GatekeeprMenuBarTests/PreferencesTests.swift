@@ -46,6 +46,19 @@ final class PreferencesTests: XCTestCase {
         XCTAssertTrue(Preferences.warnThresholdChoices.contains(Preferences.defaultWarnThreshold))
     }
 
+    func testLogDirectoryDefaultsToAppgatesAndCanBeOverridden() {
+        let scratch = ScratchDefaults()
+        let preferences = Preferences(defaults: scratch.defaults)
+        XCTAssertEqual(preferences.logDirectory.path, "/var/log/appgate")
+
+        scratch.defaults.set("/tmp/appgate-logs", forKey: Preferences.Key.logDirectory)
+        XCTAssertEqual(preferences.logDirectory.path, "/tmp/appgate-logs")
+        scratch.defaults.set("~/logs", forKey: Preferences.Key.logDirectory)
+        XCTAssertEqual(preferences.logDirectory.path, NSHomeDirectory() + "/logs")
+        scratch.defaults.set("", forKey: Preferences.Key.logDirectory)
+        XCTAssertEqual(preferences.logDirectory.path, "/var/log/appgate")
+    }
+
     func testLabels() {
         XCTAssertEqual(Preferences.label(forWarnThreshold: 60), "1 minute")
         XCTAssertEqual(Preferences.label(forWarnThreshold: 5 * 60), "5 minutes")
