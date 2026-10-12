@@ -1,7 +1,7 @@
 # gatekeepr
 
-Know when your Appgate SDP session on macOS is about to expire, as a CLI and a
-menu bar app.
+Know when your Appgate SDP session on macOS is about to expire, from the
+command line.
 
 > **Unofficial.** gatekeepr is not affiliated with, endorsed by or supported by
 > Appgate. It works from observed `driver.log` behaviour, not a documented API,
@@ -13,57 +13,26 @@ then everything behind the VPN stops working. gatekeepr reads the driver logs
 in `/var/log/appgate`, which any user can read, and tells you when that will
 happen. It needs no root and makes no network calls.
 
-Status: Milestone 3 (GitHub Releases), on top of the menu bar app (Milestone 2)
-and the core library + CLI (Milestone 1). See [docs/SCOPE.md](docs/SCOPE.md).
+gatekeepr is a single command-line tool. Up to v0.2.1 there was also a menu
+bar app; it was removed in v0.3.0, and
+[v0.2.1](https://github.com/akramsaouri/gatekeepr/releases/tag/v0.2.1) is the
+last release that has it. See [docs/SCOPE.md](docs/SCOPE.md).
 
 ## Install
 
-gatekeepr needs macOS 13 or later, on Apple silicon or Intel. Every
-[release](https://github.com/akramsaouri/gatekeepr/releases/latest) has:
+gatekeepr needs macOS 13 or later, on Apple silicon or Intel. It's installed
+from [GitHub Releases](https://github.com/akramsaouri/gatekeepr/releases/latest),
+or built from source. Every release has:
 
 | File | What it is |
 |---|---|
-| `Gatekeepr-<version>.zip` | The menu bar app |
-| `gatekeepr-<version>-macos-universal.tar.gz` | The CLI, with the licence and this README |
-| `SHA256SUMS` | SHA-256 checksums of both |
+| `gatekeepr-<version>-macos-universal.tar.gz` | The CLI (arm64 and x86_64 in one binary), with the licence and this README |
+| `SHA256SUMS` | Its SHA-256 checksum |
 
-Both are universal binaries (arm64 and x86_64), ad-hoc signed and not notarized.
-
-### Menu bar app
-
-1. Download `Gatekeepr-<version>.zip` and `SHA256SUMS` from the
-   [latest release](https://github.com/akramsaouri/gatekeepr/releases/latest).
-2. Check the download. In the folder you saved both files to:
-
-   ```sh
-   shasum -a 256 -c --ignore-missing SHA256SUMS
-   ```
-
-   It should print `Gatekeepr-<version>.zip: OK`. Anything else means a
-   corrupted or tampered download: delete it and don't open it.
-3. Double-click the zip to unpack it, and move `Gatekeepr.app` to Applications.
-4. Open it. The first time, macOS blocks it:
-
-> **Not notarized, by choice.** The app is ad-hoc signed only, with no Developer
-> ID and no notarization. A copy you built yourself runs as is. A downloaded copy
-> is blocked by Gatekeeper the first time you open it ("Apple could not verify…").
-> To allow it once:
->
-> 1. Open `Gatekeepr.app` and dismiss the warning.
-> 2. Go to **System Settings › Privacy & Security**, scroll to **Security**, and
->    click **Open Anyway** next to the Gatekeepr message.
-> 3. Open the app again and confirm.
->
-> On macOS 14 and earlier, right-click the app in Finder and choose **Open**
-> instead. Or clear the quarantine flag from a terminal:
-> `xattr -dr com.apple.quarantine /Applications/Gatekeepr.app`.
-
-See [Menu bar app](#menu-bar-app) for what it does.
-
-### CLI
+The binary is ad-hoc signed and not notarized.
 
 ```sh
-version=0.2.1
+version=0.3.0
 base=https://github.com/akramsaouri/gatekeepr/releases/download/v$version
 curl -fLO "$base/gatekeepr-$version-macos-universal.tar.gz"
 curl -fLO "$base/SHA256SUMS"
@@ -73,8 +42,11 @@ sudo install "gatekeepr-$version-macos-universal/gatekeepr" /usr/local/bin/
 gatekeepr --version
 ```
 
-Or put `gatekeepr` anywhere else on your `PATH`. With the
-[GitHub CLI](https://cli.github.com), the two downloads are
+`shasum` should print `gatekeepr-<version>-macos-universal.tar.gz: OK`.
+Anything else means a corrupted or tampered download: delete it and don't run
+it. Or put `gatekeepr` anywhere else on your `PATH`.
+
+With the [GitHub CLI](https://cli.github.com), the two downloads are
 `gh release download --repo akramsaouri/gatekeepr --pattern 'gatekeepr-*' --pattern SHA256SUMS`.
 
 `curl` and `gh` don't mark what they download as quarantined, so the binary
@@ -88,17 +60,22 @@ xattr -d com.apple.quarantine "gatekeepr-$version-macos-universal/gatekeepr"
 
 ### Build from source
 
-You need macOS 13 or later and Swift 5.9 or later (Xcode 15+, or the Command
-Line Tools).
+You need Go 1.26 or later. Either install it straight from the module:
+
+```sh
+go install github.com/akramsaouri/gatekeepr@latest
+```
+
+which puts `gatekeepr` in `$(go env GOPATH)/bin`, or clone and build:
 
 ```sh
 git clone https://github.com/akramsaouri/gatekeepr.git
 cd gatekeepr
-swift build -c release
-sudo install .build/release/gatekeepr /usr/local/bin/
+go build
+sudo install gatekeepr /usr/local/bin/
 ```
 
-For the menu bar app, see [Build the app](#build-the-app).
+gatekeepr only uses Go's standard library.
 
 ## Usage
 
@@ -117,7 +94,7 @@ Times are in your local time zone.
 |---|---|
 | `gatekeepr` | Sign-in time, expiry, time left, and how many sessions the length was learned from |
 | `gatekeepr --short` | One line like `6h08m` (or `expired`, `signed out`, `no session`), for statuslines |
-| `gatekeepr --json` | Machine-readable status |
+| `gatekeepr --json` | Machine-readable status, see [JSON](#json) |
 | `gatekeepr history` | Past sessions with their measured lengths (`--json` works here too) |
 | `--warn <duration>` | Warning threshold, default `30m`. Accepts `45s`, `30m`, `2h`, `1h30m` |
 | `--log-dir <path>` | Read logs from somewhere other than `/var/log/appgate` |
@@ -130,6 +107,7 @@ Times are in your local time zone.
 | 1 | Signed in, within the warn threshold |
 | 2 | Expired, or not signed in |
 | 3 | Logs unreadable, or in a format gatekeepr doesn't recognise |
+| 64 | Wrong command line (unknown option, bad `--warn`, `--json` with `--short`) |
 
 So a script can do `gatekeepr --short --warn 1h || notify "Appgate session ending"`.
 
@@ -142,9 +120,11 @@ $ gatekeepr --json
   "expiresAt" : "2026-10-12T01:24:40+02:00",
   "expirySource" : "sessionLength",
   "now" : "2026-10-11T19:16:00+02:00",
+  "schemaVersion" : 1,
   "secondsLeft" : 22120,
   "sessionLengthLearnedFrom" : 17,
   "sessionLengthSeconds" : 86399,
+  "sessionLengthSource" : "median",
   "sessionStart" : "2026-10-11T01:24:41+02:00",
   "sessionStartKind" : "signIn",
   "state" : "active",
@@ -153,11 +133,13 @@ $ gatekeepr --json
 }
 ```
 
-`state` is one of `active`, `expiringSoon`, `expired`, `signedOut` or
-`noSession`. `expirySource` is `sessionLength` (sign-in plus the learned length)
-or `renewalNotification` (Appgate's own 5-minute countdown has started).
-`sessionStartKind` is `signIn` or `renewal`. Fields that don't apply are left
-out. On errors you get `{"state": "error", "exitCode": 3, "error": "..."}`.
+The JSON output is a stable contract, documented field by field, state by
+state, in **[docs/JSON.md](docs/JSON.md)**, along with `history --json`, the
+error object and the exit codes. In short: `state` is one of `active`,
+`expiringSoon`, `expired`, `signedOut` or `noSession`, times are ISO 8601 with
+your UTC offset, and fields that don't apply are left out. On errors you get
+`{"state": "error", "exitCode": 3, "error": "...", "schemaVersion": 1}`. Any
+change to the schema bumps `schemaVersion`.
 
 ### History
 
@@ -172,65 +154,6 @@ Wed 7 Oct 08:18   sign-in  Thu 8 Oct 08:18   expired      24h00m  0
 Sun 11 Oct 01:24  sign-in  -                 active       -       1
 ```
 
-## Menu bar app
-
-`Gatekeepr.app` puts a ring and the time left in the menu bar, using the same
-text as `gatekeepr --short`. The ring is the share of the session that's left
-(time left over the learned session length): full right after you sign in, it
-empties clockwise from 12 o'clock over a faint full circle.
-
-![The menu bar item in each state, on light and dark menu bars](docs/menu-bar-states.png)
-
-| Menu bar | Meaning |
-|---|---|
-| ring `6h08m` | Signed in, more than the warn threshold left. In the menu bar's own colour |
-| orange ring `25m` | Signed in, inside the warn window |
-| red ✕ in a ring, `expired` | The session ran out |
-| dash in an empty ring, `signed out` / `no session` | Not signed in |
-| red triangle `error` | The logs can't be read, or don't look the way gatekeepr expects (the CLI's exit code 3). The menu shows why. It never falls back to a guess |
-
-The menu shows the sign-in time, the expiry, the time left and how many past
-sessions the length was learned from (the same lines `gatekeepr` prints), your
-recent sessions, **Open Appgate**, **Warn Before Expiry** (5 minutes to 2 hours,
-default 30 minutes, remembered), **Launch at Login** and **Quit**.
-
-- **Notifications.** You get one when the session enters the warn window, and
-  one when it expires, once per session each. Gatekeepr remembers which session
-  it already told you about, so restarting the app doesn't repeat them. An
-  expiry more than 15 minutes old isn't announced, so starting the app (or
-  opening the laptop) the morning after doesn't ping you about last night's
-  session; the menu bar already says `expired`. Click a notification to open
-  Appgate SDP.
-- **Live updates.** The app watches `/var/log/appgate` for changes (kqueue, no
-  polling), so signing in, signing out or renewing shows up within a second. It
-  follows `driver.log` through Appgate's nightly log rotation. The only timer
-  ticks the countdown, and redraws the ring, once a minute.
-- **Launch at Login** uses `SMAppService`, so the app shows up under System
-  Settings › General › Login Items. Move `Gatekeepr.app` to Applications first.
-- **No Dock icon** (`LSUIElement`).
-- **Not sandboxed, and can't be.** It reads `/var/log/appgate`, which a
-  sandboxed app has no access to. That's also why it won't be on the App Store.
-  Like the CLI, it needs no root and makes no network calls.
-
-### Build the app
-
-```sh
-scripts/build-app
-open build/Gatekeepr.app        # or move it to /Applications first
-```
-
-The script builds a release binary for your Mac, wraps it in
-`build/Gatekeepr.app` and signs it ad hoc. `scripts/build-app --universal`
-builds for both arm64 and x86_64, as the releases do. A copy you built yourself
-isn't quarantined, so it opens without the Open Anyway step.
-
-To point the app at a different log directory (like the CLI's `--log-dir`):
-
-```sh
-defaults write io.github.akramsaouri.gatekeepr logDirectory /path/to/logs
-open build/Gatekeepr.app --args -logDirectory /path/to/logs   # one run only
-```
-
 ## How it works
 
 There is no API for any of this. Everything comes from `driver.log` and the
@@ -240,9 +163,10 @@ like `[2026-10-10T23:24:41.741Z] Info : <message>`, in UTC.
 - **Sign-in.** The client sends a `login` to each site (AWS and GCP, say) within
   a second or two; that's one sign-in. A login counts as a sign-in when the
   previous session is over: the client closed its control connection
-  (`Closing *:0 (Client closed control connection)`), the client opened a new
-  control connection, or the driver restarted (after a reboot, for example).
-  The first login in the log history counts too.
+  (`Closing *:0 (Client closed control connection)`, or another port such as
+  `*:52253`), the client opened a new control connection, or the driver
+  restarted (after a reboot, for example). The first login in the log history
+  counts too.
 - **Reconnects don't count.** When a gateway drops the tunnel
   (`Disconnected by gateway`, `Dead connection detected`, an IP address change),
   the client reconnects and sends a fresh `login`. That's the same session.
@@ -265,8 +189,39 @@ like `[2026-10-10T23:24:41.741Z] Info : <message>`, in UTC.
   status JSON, `All sites connected in 2114ms`, `netstat` output and its
   `Expire` column) is ignored.
 
-These rules come from Appgate client 6.5.3 talking to gateway 6.5.6. If your
-version behaves differently, please open an issue with a sanitized log.
+These rules come from Appgate client 6.5.3 talking to gateway 6.5.6, on one
+machine. Logs from other setups are the main thing left to check them against:
+see the next section.
+
+## Reporting a parse failure
+
+If gatekeepr exits with 3 on your logs and says a line "doesn't match any known
+Appgate log format" or has an unexpected shape, the rules need to learn your
+Appgate version's logs. Please send the offending excerpt:
+
+1. Note the file and line from the message, like
+   `driver-2026-10-10.log.gz:1234`.
+2. Copy that line and a few dozen lines around it, and run them through the
+   sanitizer, which needs only Python 3:
+
+   ```sh
+   gzcat /var/log/appgate/driver-2026-10-10.log.gz | sed -n '1200,1270p' > excerpt.log
+   # for the live log: sed -n '1200,1270p' /var/log/appgate/driver.log > excerpt.log
+   scripts/sanitize-log excerpt.log > excerpt.sanitized.log
+   scripts/sanitize-log --check excerpt.sanitized.log
+   ```
+
+   `--check` reports anything that still looks like a real address or token.
+3. Read `excerpt.sanitized.log` yourself before sharing it, then
+   [open an issue](https://github.com/akramsaouri/gatekeepr/issues/new) with
+   the excerpt, the full error message, `gatekeepr --version`, and your
+   Appgate client version. The driver logs it whenever it starts:
+   `gzcat -f /var/log/appgate/driver*.log* | grep loop_init | tail -1`.
+
+`scripts/sanitize-log` is in this repository, not in the release tarball:
+download it from
+[GitHub](https://raw.githubusercontent.com/akramsaouri/gatekeepr/main/scripts/sanitize-log),
+or clone the repository.
 
 ## Sharing logs
 
@@ -280,74 +235,63 @@ scripts/sanitize-log /var/log/appgate/driver.log > driver.sanitized.log
 scripts/sanitize-log --check driver.sanitized.log   # reports anything that still looks real
 ```
 
-It needs only Python 3. Read the output before you share it anyway.
+It reads `.gz` files too. Read the output before you share it anyway.
 
 ## Development
 
 ```sh
-swift build
-swift test
-scripts/build-app
+go vet ./...
+go test -race ./...
 ```
 
-| Target | What it is |
+| Package | What it is |
 |---|---|
-| `GatekeeprCore` | Reads the logs, splits them into sessions, learns the length, computes expiry. Also the wording both front ends share (`StatusText`) |
-| `gatekeepr` | The CLI |
-| `GatekeeprMenuBar` | The menu bar app's logic: what the menu and the ring show in each state, notification bookkeeping, settings and the log watcher. No UI, unit-tested |
-| `GatekeeprApp` | The SwiftUI `MenuBarExtra` and the system glue (notifications, launch at login, opening Appgate). `scripts/build-app` turns it into `Gatekeepr.app`. It isn't called `Gatekeepr` because on a case-insensitive disk that would collide with the `gatekeepr` CLI in `.build/` |
+| `internal/core` | Reads the logs, splits them into sessions, learns the length, computes expiry. Also the status wording and the `--json` reports |
+| `internal/cli` | The command line: arguments, help, and the output layout |
+| `.` (`main.go`) | Runs `internal/cli` |
 
-All the session logic is in `GatekeeprCore`; the app doesn't make any decisions
-of its own about sessions. `swift run GatekeeprApp` starts the app without a
-bundle, which is handy for working on the menu, but notifications and launch at
-login only work from `Gatekeepr.app`.
+Tests run against sanitized excerpts of real logs in
+[`testdata/fixtures`](testdata/fixtures). The golden files in
+[`testdata/golden`](testdata/golden) pin what gatekeepr prints and exits with
+for every state, history, errors, help and usage errors. They were first
+captured from the Swift version that gatekeepr v0.2.x was written in, and the
+Go version matches them byte for byte (see the README there). After an
+intended change to the output, run `go test -run TestGolden -update` and
+review the diff.
 
-Core tests run against sanitized excerpts of real logs in
-`Tests/GatekeeprCoreTests/Fixtures`; see the README there. The menu bar tests
-write small synthetic logs and go through the same parser. Never commit raw
-logs: `.gitignore` blocks `*.log` and `*.log.gz` outside the fixtures directory,
-and CI runs `scripts/sanitize-log --check` over the fixtures.
+Never commit raw logs: `.gitignore` blocks `*.log` and `*.log.gz` outside the
+fixtures directory, and CI runs `scripts/sanitize-log --check` over the fixtures.
 
-### App icon and menu bar images
-
-`assets/icon/icon.svg` is the icon at 128 px and up, and `icon-small.svg` a flat
-version for 16 and 32 px that stays legible in Finder lists and notifications.
-`scripts/make-icon` renders both into `assets/icon/AppIcon.icns` and writes
-[`docs/icon-contact-sheet.png`](docs/icon-contact-sheet.png). It needs
-`rsvg-convert` (`brew install librsvg`), so both outputs are committed:
-`scripts/build-app` only copies the `.icns`, and building the app needs nothing
-extra. After changing either SVG, run `scripts/make-icon` and commit the result.
-
-The menu bar ring is drawn in code, in `StatusItemImage`. To redraw
-[`docs/menu-bar-states.png`](docs/menu-bar-states.png) after changing it:
-
-```sh
-GATEKEEPR_STATUS_STRIP=docs/menu-bar-states.png swift test --filter StatusItemImageTests
-```
+CI runs vet and the tests with the oldest Go that `go.mod` allows and with the
+Go releases are built with (`.go-version`), and builds and checks the release
+files on every pull request.
 
 ### Releasing
 
 Releases are built by GitHub Actions
 ([`release.yml`](.github/workflows/release.yml)) when a `v*` tag is pushed:
 
-1. Set the version in `Sources/GatekeeprCore/Version.swift`. It's the only
-   place it lives: `gatekeepr --version` prints it and `scripts/build-app`
-   copies it into the app's Info.plist.
-2. Merge that to `main`, then tag the merge commit and push the tag:
-   `git tag v0.3.0 && git push origin v0.3.0`.
+1. Set the version in `internal/cli/cli.go` (`const Version`). It's the only
+   place it lives.
+2. Optionally, write `.github/release-notes/v<version>.md`; it goes at the top
+   of the release notes.
+3. Merge that to `main`, then tag the merge commit and push the tag:
+   `git tag v0.3.1 && git push origin v0.3.1`.
 
-The workflow runs the tests and the fixture check, builds both universal
-binaries with `scripts/build-release`, and runs `scripts/check-release`, which
-fails unless the tag, `Version.swift`, `gatekeepr --version` and the app's
-`CFBundleShortVersionString` all agree and both binaries have arm64 and x86_64
-slices (`lipo -archs`). Only then does it publish the release, with notes listing
-the commits since the previous tag. It uploads to a draft first, so a failed run
-never leaves a half-published release.
+The workflow runs vet, the tests and the fixture check with the Go in
+`.go-version`, builds the universal binary with `scripts/build-release` (one
+`go build` per architecture, merged with `lipo`, signed ad hoc with the
+hardened runtime), and runs `scripts/check-release`, which fails unless the
+tag, `internal/cli/cli.go` and `gatekeepr --version` on both slices agree, the
+binary has arm64 and x86_64 slices (`lipo -archs`), and it's signed. Only then
+does it publish the release, with notes listing the commits since the previous
+tag. It uploads to a draft first, so a failed run never leaves a half-published
+release.
 
 CI runs the same two scripts on every pull request, so you can try them
-locally too:
+locally too (on macOS):
 
 ```sh
 scripts/build-release          # writes dist/
-scripts/check-release dist v0.3.0
+scripts/check-release dist v0.3.1
 ```

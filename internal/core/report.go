@@ -7,9 +7,8 @@ import (
 	"time"
 )
 
-// SchemaVersion is the version of the `--json` output. It goes up whenever a
-// field is removed, renamed or changes meaning; adding a field doesn't bump it.
-// See docs/JSON.md.
+// SchemaVersion is the version of the `--json` output, documented in
+// docs/JSON.md. Any change to the schema bumps it, additions included.
 const SchemaVersion = 1
 
 // StatusReport is `gatekeepr --json`.
