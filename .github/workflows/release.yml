@@ -15,14 +15,13 @@ concurrency:
 jobs:
   release:
     runs-on: macos-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
         with:
           # The release notes list the commits since the previous tag.
           fetch-depth: 0
+          # The token with write access is only handed to the steps that publish.
+          persist-credentials: false
 
       - name: Swift version
         run: swift --version
@@ -71,6 +70,9 @@ jobs:
       # A draft first, with every file attached, then published: a failed upload
       # never leaves a half-published release.
       - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           tag=$GITHUB_REF_NAME
           version=${tag#v}
@@ -88,6 +90,9 @@ jobs:
       # Only ever deletes a draft this run left behind, never a published release.
       - name: Delete the draft if publishing failed
         if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           if [ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null)" = true ]; then
             gh release delete "$GITHUB_REF_NAME" --yes
