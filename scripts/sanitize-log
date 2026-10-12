@@ -14,7 +14,7 @@ Usage:
   scripts/sanitize-log /var/log/appgate/driver.log > driver.sanitized.log
   scripts/sanitize-log < driver.log > driver.sanitized.log
   scripts/sanitize-log --out-dir OUT /var/log/appgate/driver*.log*
-  scripts/sanitize-log --check Tests/GatekeeprCoreTests/Fixtures
+  scripts/sanitize-log --check testdata/fixtures
 
 Inputs ending in .gz are decompressed. With --out-dir, each input is written to
 OUT/<same name>, re-compressed if it was a .gz. --check doesn't change anything:

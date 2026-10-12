@@ -1,0 +1,19 @@
+args: history --log-dir testdata/fixtures/unknown-format --json
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 3
+-- stdout --
+{
+  "error" : "driver.log:1: this line doesn't match any known Appgate log format, so gatekeepr won't guess. Line: 2026-10-08 07:42:22,804 INFO  Calling exe: /Library/Application Support/Appgate/Appgate Service.app/Contents/MacOS/Appgate Service (1610) - signed by: HYXN7HQ37…",
+  "exitCode" : 3,
+  "schemaVersion" : 1,
+  "state" : "error"
+}
+-- stderr --
+gatekeepr: driver.log:1: this line doesn't match any known Appgate log format, so gatekeepr won't guess. Line: 2026-10-08 07:42:22,804 INFO  Calling exe: /Library/Application Support/Appgate/Appgate Service.app/Contents/MacOS/Appgate Service (1610) - signed by: HYXN7HQ37…
+-- swift-stdout --
+{
+  "error" : "driver.log:1: this line doesn't match any known Appgate log format, so gatekeepr won't guess. Line: 2026-10-08 07:42:22,804 INFO  Calling exe: /Library/Application Support/Appgate/Appgate Service.app/Contents/MacOS/Appgate Service (1610) - signed by: HYXN7HQ37…",
+  "exitCode" : 3,
+  "state" : "error"
+}

@@ -1,0 +1,9 @@
+args: --log-dir testdata/fixtures/signed-out
+now: 2026-09-28T07:07:50Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+Not signed in to Appgate
+  Last session  Mon 28 Sep 08:35
+  Ended         Mon 28 Sep 09:07 (signed out)
+-- stderr --

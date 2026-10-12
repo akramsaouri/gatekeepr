@@ -1,0 +1,10 @@
+args: --json ---x
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Invalid option: ---x
+Usage: gatekeepr <subcommand>
+  See 'gatekeepr --help' for more information.
+-- swift-stdout --

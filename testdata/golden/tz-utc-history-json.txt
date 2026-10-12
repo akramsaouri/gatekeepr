@@ -1,0 +1,103 @@
+args: history --log-dir testdata/fixtures/rotation --json
+now: 2026-10-09T12:00:00Z
+tz: UTC
+exit: 0
+-- stdout --
+{
+  "now" : "2026-10-09T12:00:00Z",
+  "schemaVersion" : 1,
+  "sessionLengthLearnedFrom" : 2,
+  "sessionLengthSeconds" : 86398,
+  "sessionLengthSource" : "median",
+  "sessions" : [
+    {
+      "end" : "2026-10-07T06:12:29Z",
+      "endKind" : "driverRestarted",
+      "expiresAt" : "2026-10-07T07:52:44Z",
+      "expirySource" : "sessionLength",
+      "outcome" : "interrupted",
+      "reconnects" : 0,
+      "start" : "2026-10-06T07:52:45Z",
+      "startKind" : "signIn"
+    },
+    {
+      "end" : "2026-10-08T06:18:41Z",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-10-08T06:18:41Z",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86398,
+      "outcome" : "expired",
+      "reconnects" : 0,
+      "start" : "2026-10-07T06:18:43Z",
+      "startKind" : "signIn"
+    },
+    {
+      "end" : "2026-10-09T07:42:22Z",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-10-09T07:42:22Z",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86399,
+      "outcome" : "expired",
+      "reconnects" : 1,
+      "start" : "2026-10-08T07:42:23Z",
+      "startKind" : "signIn"
+    },
+    {
+      "expiresAt" : "2026-10-10T07:55:33Z",
+      "expirySource" : "sessionLength",
+      "outcome" : "active",
+      "reconnects" : 0,
+      "start" : "2026-10-09T07:55:35Z",
+      "startKind" : "signIn"
+    }
+  ]
+}
+-- stderr --
+-- swift-stdout --
+{
+  "now" : "2026-10-09T12:00:00Z",
+  "sessionLengthLearnedFrom" : 2,
+  "sessionLengthSeconds" : 86398,
+  "sessions" : [
+    {
+      "end" : "2026-10-07T06:12:29Z",
+      "endKind" : "driverRestarted",
+      "expiresAt" : "2026-10-07T07:52:44Z",
+      "expirySource" : "sessionLength",
+      "outcome" : "interrupted",
+      "reconnects" : 0,
+      "start" : "2026-10-06T07:52:45Z",
+      "startKind" : "signIn"
+    },
+    {
+      "end" : "2026-10-08T06:18:41Z",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-10-08T06:18:41Z",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86398,
+      "outcome" : "expired",
+      "reconnects" : 0,
+      "start" : "2026-10-07T06:18:43Z",
+      "startKind" : "signIn"
+    },
+    {
+      "end" : "2026-10-09T07:42:22Z",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-10-09T07:42:22Z",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86399,
+      "outcome" : "expired",
+      "reconnects" : 1,
+      "start" : "2026-10-08T07:42:23Z",
+      "startKind" : "signIn"
+    },
+    {
+      "expiresAt" : "2026-10-10T07:55:33Z",
+      "expirySource" : "sessionLength",
+      "outcome" : "active",
+      "reconnects" : 0,
+      "start" : "2026-10-09T07:55:35Z",
+      "startKind" : "signIn"
+    }
+  ]
+}

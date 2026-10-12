@@ -1,0 +1,23 @@
+args: status --help
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+columns: 20
+exit: 0
+-- stdout --
+OVERVIEW: Show the
+current session:
+sign-in time,
+expiry and time
+left.
+
+USAGE: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+
+OPTIONS:
+  --log-dir <path>
+  --json
+  --short
+  --warn <duration>
+  --version
+  -h, --help
+
+-- stderr --

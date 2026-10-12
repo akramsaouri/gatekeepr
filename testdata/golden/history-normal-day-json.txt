@@ -1,0 +1,61 @@
+args: history --log-dir testdata/fixtures/normal-day --json
+now: 2026-10-09T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+{
+  "now" : "2026-10-09T14:00:00+02:00",
+  "schemaVersion" : 1,
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessionLengthSource" : "median",
+  "sessions" : [
+    {
+      "end" : "2026-10-09T09:42:22+02:00",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-10-09T09:42:22+02:00",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86399,
+      "outcome" : "expired",
+      "reconnects" : 1,
+      "start" : "2026-10-08T09:42:23+02:00",
+      "startKind" : "signIn"
+    },
+    {
+      "expiresAt" : "2026-10-10T09:55:34+02:00",
+      "expirySource" : "sessionLength",
+      "outcome" : "active",
+      "reconnects" : 0,
+      "start" : "2026-10-09T09:55:35+02:00",
+      "startKind" : "signIn"
+    }
+  ]
+}
+-- stderr --
+-- swift-stdout --
+{
+  "now" : "2026-10-09T14:00:00+02:00",
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86399,
+  "sessions" : [
+    {
+      "end" : "2026-10-09T09:42:22+02:00",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-10-09T09:42:22+02:00",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86399,
+      "outcome" : "expired",
+      "reconnects" : 1,
+      "start" : "2026-10-08T09:42:23+02:00",
+      "startKind" : "signIn"
+    },
+    {
+      "expiresAt" : "2026-10-10T09:55:34+02:00",
+      "expirySource" : "sessionLength",
+      "outcome" : "active",
+      "reconnects" : 0,
+      "start" : "2026-10-09T09:55:35+02:00",
+      "startKind" : "signIn"
+    }
+  ]
+}

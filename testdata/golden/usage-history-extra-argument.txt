@@ -1,0 +1,9 @@
+args: history extra
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Unexpected argument 'extra'
+Usage: gatekeepr history [--log-dir <path>] [--json]
+  See 'gatekeepr history --help' for more information.

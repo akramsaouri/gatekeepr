@@ -1,0 +1,7 @@
+args: --log-dir testdata/fixtures/normal-day --short
+now: 2026-10-09T07:50:00Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+expired
+-- stderr --

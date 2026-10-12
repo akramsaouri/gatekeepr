@@ -1,0 +1,19 @@
+args: --log-dir testdata/fixtures/no-log-files --json
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 3
+-- stdout --
+{
+  "error" : "no driver.log or driver-YYYY-MM-DD.log.gz files in {{CWD}}/testdata/fixtures/no-log-files",
+  "exitCode" : 3,
+  "schemaVersion" : 1,
+  "state" : "error"
+}
+-- stderr --
+gatekeepr: no driver.log or driver-YYYY-MM-DD.log.gz files in {{CWD}}/testdata/fixtures/no-log-files
+-- swift-stdout --
+{
+  "error" : "no driver.log or driver-YYYY-MM-DD.log.gz files in {{CWD}}/testdata/fixtures/no-log-files",
+  "exitCode" : 3,
+  "state" : "error"
+}

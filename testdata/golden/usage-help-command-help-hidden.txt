@@ -1,0 +1,8 @@
+args: help --help-hidden
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Unknown option '--help-hidden'
+Usage: gatekeepr help [<subcommands> ...]

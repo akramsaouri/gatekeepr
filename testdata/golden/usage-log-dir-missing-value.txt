@@ -1,0 +1,10 @@
+args: --log-dir
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Missing value for '--log-dir <path>'
+Help:  --log-dir <path>  Where Appgate writes driver.log.
+Usage: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+  See 'gatekeepr status --help' for more information.

@@ -1,0 +1,10 @@
+args: --log-dir testdata/fixtures/expired
+now: 2026-10-10T07:55:35.500Z
+tz: Europe/Stockholm
+exit: 2
+-- stdout --
+Appgate session expired
+  Signed in  Fri 9 Oct 09:55
+  Expired    Sat 10 Oct 09:55 (<1m ago)
+  Length     24h00m, measured from 1 session
+-- stderr --

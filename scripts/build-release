@@ -1,16 +1,16 @@
 #!/bin/sh
 # Builds everything a GitHub release ships:
 #
-#   Gatekeepr-<version>.zip                       the menu bar app
 #   gatekeepr-<version>-macos-universal.tar.gz    the CLI, with LICENSE and README.md
 #   SHA256SUMS
 #
 #   scripts/build-release            # writes dist/
 #   scripts/build-release OUT_DIR    # writes OUT_DIR/
 #
-# Both binaries are universal (arm64 + x86_64) and signed like scripts/build-app
-# signs the app: ad hoc with the hardened runtime, unless GATEKEEPR_SIGN_IDENTITY
-# is set. The version comes from Sources/GatekeeprCore/Version.swift.
+# The binary is universal: one go build per architecture (arm64 and amd64),
+# merged with lipo. It's signed ad hoc with the hardened runtime, unless
+# GATEKEEPR_SIGN_IDENTITY names a Developer ID. Needs macOS for lipo and
+# codesign. The version comes from internal/cli/cli.go.
 #
 # scripts/check-release checks the result. The release workflow runs both on a
 # v* tag, and CI runs both on every PR, so the packaging can't break unnoticed
@@ -21,14 +21,12 @@ set -eu
 cd "$(dirname "$0")/.."
 
 out_dir="${1:-dist}"
-version=$(sed -n 's/.*static let version = "\(.*\)".*/\1/p' Sources/GatekeeprCore/Version.swift)
+version=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' internal/cli/cli.go)
 if [ -z "$version" ]; then
-    echo "build-release: can't read the version from Sources/GatekeeprCore/Version.swift" >&2
+    echo "build-release: can't read the version from internal/cli/cli.go" >&2
     exit 1
 fi
-arch_flags="--arch arm64 --arch x86_64"
 cli_name="gatekeepr-$version-macos-universal"
-app_zip="Gatekeepr-$version.zip"
 cli_tar="$cli_name.tar.gz"
 
 work=$(mktemp -d)
@@ -36,39 +34,33 @@ trap 'rm -rf "$work"' EXIT
 rm -rf "$out_dir"
 mkdir -p "$out_dir"
 
-echo "==> Building gatekeepr $version (release, universal)"
-# shellcheck disable=SC2086 # arch_flags is a list of flags
-swift build -c release $arch_flags --product gatekeepr
-# shellcheck disable=SC2086
-bin_dir=$(swift build -c release $arch_flags --show-bin-path)
+echo "==> Building gatekeepr $version with $(go version | cut -d' ' -f3)"
+for arch in arm64 amd64; do
+    CGO_ENABLED=0 GOOS=darwin GOARCH=$arch go build -trimpath -ldflags="-s -w" -o "$work/gatekeepr-$arch" .
+done
 
 mkdir "$work/$cli_name"
-cp "$bin_dir/gatekeepr" LICENSE README.md "$work/$cli_name/"
 cli="$work/$cli_name/gatekeepr"
+lipo -create -output "$cli" "$work/gatekeepr-arm64" "$work/gatekeepr-amd64"
+cp LICENSE README.md "$work/$cli_name/"
 
-# See "Signing" in scripts/build-app.
+# No Developer ID for now, so ad hoc: curl and gh don't quarantine what they
+# download, so it runs as is. The hardened runtime is on, as notarization
+# would require.
 identity="${GATEKEEPR_SIGN_IDENTITY:--}"
 if [ "$identity" = "-" ]; then
-    echo "==> Signing the CLI ad hoc"
+    echo "==> Signing ad hoc"
     codesign --force --options runtime --sign - "$cli"
 else
-    echo "==> Signing the CLI as $identity"
+    echo "==> Signing as $identity"
     codesign --force --options runtime --timestamp --sign "$identity" "$cli"
 fi
 codesign --verify --strict "$cli"
 
-scripts/build-app --universal "$work"
-app="$work/Gatekeepr.app"
-
 echo "==> Packaging into $out_dir"
-# ditto keeps the bundle's structure and signature intact, as Apple recommends
-# for zipping an app. --norsrc leaves out extended attributes such as
-# com.apple.provenance: ditto would store them as ._ files next to each file,
-# and unzip(1) would then leave those inside the bundle and break its seal.
-ditto -c -k --norsrc --keepParent "$app" "$out_dir/$app_zip"
 # COPYFILE_DISABLE stops tar adding AppleDouble ._ files for extended attributes.
 COPYFILE_DISABLE=1 tar -C "$work" -czf "$out_dir/$cli_tar" "$cli_name"
-(cd "$out_dir" && shasum -a 256 "$app_zip" "$cli_tar" > SHA256SUMS)
+(cd "$out_dir" && shasum -a 256 "$cli_tar" > SHA256SUMS)
 
 ls -l "$out_dir"
 echo "==> Done. scripts/check-release $out_dir checks what's inside."

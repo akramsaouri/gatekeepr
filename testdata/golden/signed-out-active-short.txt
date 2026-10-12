@@ -1,0 +1,7 @@
+args: --log-dir testdata/fixtures/signed-out --short
+now: 2026-09-28T06:50:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+23h45m
+-- stderr --

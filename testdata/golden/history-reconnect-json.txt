@@ -1,0 +1,45 @@
+args: history --log-dir testdata/fixtures/reconnect --json
+now: 2026-09-29T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+{
+  "now" : "2026-09-29T14:00:00+02:00",
+  "schemaVersion" : 1,
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86398,
+  "sessionLengthSource" : "median",
+  "sessions" : [
+    {
+      "end" : "2026-09-29T09:21:21+02:00",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-09-29T09:21:18+02:00",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86398,
+      "outcome" : "expired",
+      "reconnects" : 1,
+      "start" : "2026-09-28T09:21:20+02:00",
+      "startKind" : "signIn"
+    }
+  ]
+}
+-- stderr --
+-- swift-stdout --
+{
+  "now" : "2026-09-29T14:00:00+02:00",
+  "sessionLengthLearnedFrom" : 1,
+  "sessionLengthSeconds" : 86398,
+  "sessions" : [
+    {
+      "end" : "2026-09-29T09:21:21+02:00",
+      "endKind" : "clientClosed",
+      "expiresAt" : "2026-09-29T09:21:18+02:00",
+      "expirySource" : "renewalNotification",
+      "measuredLengthSeconds" : 86398,
+      "outcome" : "expired",
+      "reconnects" : 1,
+      "start" : "2026-09-28T09:21:20+02:00",
+      "startKind" : "signIn"
+    }
+  ]
+}

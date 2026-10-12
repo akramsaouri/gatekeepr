@@ -1,0 +1,37 @@
+args: --log-dir testdata/fixtures/signed-out --json
+now: 2026-09-28T06:50:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+{
+  "exitCode" : 0,
+  "expiresAt" : "2026-09-29T08:35:30+02:00",
+  "expirySource" : "sessionLength",
+  "now" : "2026-09-28T08:50:00+02:00",
+  "schemaVersion" : 1,
+  "secondsLeft" : 85530,
+  "sessionLengthLearnedFrom" : 0,
+  "sessionLengthSeconds" : 86400,
+  "sessionLengthSource" : "default",
+  "sessionStart" : "2026-09-28T08:35:30+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "active",
+  "timeLeft" : "23h45m",
+  "warnThresholdSeconds" : 1800
+}
+-- stderr --
+-- swift-stdout --
+{
+  "exitCode" : 0,
+  "expiresAt" : "2026-09-29T08:35:30+02:00",
+  "expirySource" : "sessionLength",
+  "now" : "2026-09-28T08:50:00+02:00",
+  "secondsLeft" : 85530,
+  "sessionLengthLearnedFrom" : 0,
+  "sessionLengthSeconds" : 86400,
+  "sessionStart" : "2026-09-28T08:35:30+02:00",
+  "sessionStartKind" : "signIn",
+  "state" : "active",
+  "timeLeft" : "23h45m",
+  "warnThresholdSeconds" : 1800
+}

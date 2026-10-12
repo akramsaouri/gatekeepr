@@ -1,0 +1,26 @@
+args: history --help
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+columns: 40
+exit: 0
+-- stdout --
+OVERVIEW: List past sessions with their
+measured lengths.
+
+USAGE: gatekeepr history [--log-dir <path>] [--json]
+
+OPTIONS:
+  --log-dir <path>        Where Appgate
+                          writes
+                          driver.log.
+                          (default:
+                          /var/log/appgate)
+  --json                  Print JSON
+                          instead of
+                          text.
+  --version               Show the
+                          version.
+  -h, --help              Show help
+                          information.
+
+-- stderr --

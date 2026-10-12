@@ -1,0 +1,11 @@
+args: --log-dir testdata/fixtures/rotation
+now: 2026-10-09T12:00:00Z
+tz: Europe/Stockholm
+exit: 0
+-- stdout --
+Appgate session active
+  Signed in  Fri 9 Oct 09:55
+  Expires    Sat 10 Oct 09:55
+  Time left  19h55m
+  Length     24h00m, the median of 2 measured sessions
+-- stderr --

@@ -1,0 +1,9 @@
+args: history --lg-dir
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Unknown option '--lg-dir'. Did you mean '--log-dir'?
+Usage: gatekeepr history [--log-dir <path>] [--json]
+  See 'gatekeepr history --help' for more information.

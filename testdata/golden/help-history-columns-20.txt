@@ -1,0 +1,19 @@
+args: history --help
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+columns: 20
+exit: 0
+-- stdout --
+OVERVIEW: List past
+sessions with their
+measured lengths.
+
+USAGE: gatekeepr history [--log-dir <path>] [--json]
+
+OPTIONS:
+  --log-dir <path>
+  --json
+  --version
+  -h, --help
+
+-- stderr --

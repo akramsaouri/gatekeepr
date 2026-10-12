@@ -1,0 +1,19 @@
+args: help help
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+columns: 20
+exit: 0
+-- stdout --
+OVERVIEW: Show
+subcommand help
+information.
+
+USAGE: gatekeepr help [<subcommands> ...]
+
+ARGUMENTS:
+  <subcommands>
+
+OPTIONS:
+  --version
+
+-- stderr --

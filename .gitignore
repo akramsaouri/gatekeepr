@@ -1,12 +1,8 @@
-.build/
-.swiftpm/
-*.xcodeproj/xcuserdata/
-DerivedData/
 # never commit raw Appgate logs
 *.log
 *.log.gz
-!Tests/**/Fixtures/**
-# scripts/build-app output
-/build/
+!testdata/fixtures/**
+# go build output
+/gatekeepr
 # scripts/build-release output
 /dist/

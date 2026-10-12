@@ -1,0 +1,9 @@
+args: --bogus extra
+now: 2026-10-10T12:00:00Z
+tz: Europe/Stockholm
+exit: 64
+-- stdout --
+-- stderr --
+Error: Unknown option '--bogus'
+Usage: gatekeepr status [--log-dir <path>] [--json] [--short] [--warn <duration>]
+  See 'gatekeepr status --help' for more information.
