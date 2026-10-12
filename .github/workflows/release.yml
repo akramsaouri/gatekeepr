@@ -1,7 +1,7 @@
 name: Release
 
-# Push a tag like v0.2.0 to release. The tag has to match the version in
-# Sources/GatekeeprCore/Version.swift, or nothing is published.
+# Push a tag like v0.3.0 to release. The tag has to match the version in
+# internal/cli/cli.go, or nothing is published.
 on:
   push:
     tags: ['v*']
@@ -16,40 +16,52 @@ jobs:
   release:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The release notes list the commits since the previous tag.
           fetch-depth: 0
           # The token with write access is only handed to the steps that publish.
           persist-credentials: false
 
-      - name: Swift version
-        run: swift --version
+      # The Go releases are built with, pinned in .go-version.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: .go-version
+          cache: false
+
+      - name: Go version
+        run: go version
+
+      - name: Vet
+        run: go vet ./...
 
       - name: Test
-        run: swift test
+        run: go test -race ./...
 
       - name: Check fixtures are sanitized
-        run: scripts/sanitize-log --check Tests/GatekeeprCoreTests/Fixtures
+        run: scripts/sanitize-log --check testdata/fixtures
 
-      # The universal CLI and Gatekeepr.app, signed ad hoc and packaged into
-      # dist/ with SHA256SUMS.
+      # The universal CLI, signed ad hoc and packaged into dist/ with SHA256SUMS.
       - name: Build release files
         run: scripts/build-release
 
-      # Fails unless the tag, Version.swift, gatekeepr --version and the app's
-      # CFBundleShortVersionString all agree. Also checks lipo -archs on both
-      # binaries, the signatures and the checksums.
+      # Fails unless the tag, internal/cli/cli.go and gatekeepr --version (both
+      # slices) agree. Also checks lipo -archs, the signature and the checksums.
       - name: Check release files
         run: scripts/check-release dist "$GITHUB_REF_NAME"
 
+      # .github/release-notes/<tag>.md, if there is one, goes at the top.
       - name: Write release notes
         run: |
           tag=$GITHUB_REF_NAME
           repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           prev=$(git describe --tags --abbrev=0 --match 'v*' "$tag^" 2>/dev/null || true)
           {
-            echo "> **Not notarized, by choice.** Gatekeepr.app is ad-hoc signed only, so macOS blocks a downloaded copy the first time you open it. See [Install]($repo_url#install) in the README for the one-time **Open Anyway**."
+            if [ -f ".github/release-notes/$tag.md" ]; then
+              cat ".github/release-notes/$tag.md"
+              echo
+            fi
+            echo "> **Not notarized, by choice.** The CLI is ad-hoc signed only. Downloaded with \`curl\` or \`gh\` it runs as is; downloaded in a browser, macOS quarantines it until you clear the flag. See [Install]($repo_url#install) in the README."
             echo
             if [ -n "$prev" ]; then
               echo "## Changes since $prev"
@@ -82,7 +94,6 @@ jobs:
           gh release create "$tag" --draft --verify-tag $prerelease \
             --title "gatekeepr $version" \
             --notes-file "$RUNNER_TEMP/notes.md" \
-            "dist/Gatekeepr-$version.zip" \
             "dist/gatekeepr-$version-macos-universal.tar.gz" \
             dist/SHA256SUMS
           gh release edit "$tag" --draft=false
