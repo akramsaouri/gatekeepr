@@ -70,17 +70,6 @@ const (
 	NoSession State = "noSession"
 )
 
-// ExitCode is 0 ok · 1 within the warn window · 2 expired or not signed in.
-func (s State) ExitCode() int {
-	switch s {
-	case Active:
-		return 0
-	case ExpiringSoon:
-		return 1
-	}
-	return 2
-}
-
 // Status is where the current session stands at one moment.
 type Status struct {
 	State State

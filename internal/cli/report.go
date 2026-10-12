@@ -1,22 +1,24 @@
-package core
+package cli
 
 import (
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/akramsaouri/gatekeepr/internal/core"
 )
 
-// SchemaVersion is the version of the `--json` output, documented in
+// schemaVersion is the version of the `--json` output, documented in
 // docs/JSON.md. Any change to the schema bumps it, additions included.
-const SchemaVersion = 1
+const schemaVersion = 1
 
-// StatusReport is `gatekeepr --json`.
-func StatusReport(status Status, loc *time.Location) string {
+// statusReport is `gatekeepr --json`.
+func statusReport(status core.Status, loc *time.Location) string {
 	report := jsonObject{
-		{"schemaVersion", SchemaVersion},
+		{"schemaVersion", schemaVersion},
 		{"state", string(status.State)},
-		{"exitCode", status.State.ExitCode()},
+		{"exitCode", exitCode(status.State)},
 		{"now", isoDate(status.Now, loc)},
 		{"warnThresholdSeconds", int64(status.WarnThreshold / time.Second)},
 		{"sessionLengthSeconds", roundSeconds(status.SessionLength.Duration)},
@@ -40,13 +42,13 @@ func StatusReport(status Status, loc *time.Location) string {
 			// Negative once expired.
 			jsonField{"secondsLeft", floorSeconds(left)},
 			// Rounded down; `0m` once expired.
-			jsonField{"timeLeft", FormatDuration(left, RoundDown)})
+			jsonField{"timeLeft", formatDuration(left, roundDown)})
 	}
 	return report.encode()
 }
 
-// HistoryReport is `gatekeepr history --json`.
-func HistoryReport(analysis Analysis, loc *time.Location) string {
+// historyReport is `gatekeepr history --json`.
+func historyReport(analysis core.Analysis, loc *time.Location) string {
 	sessions := make([]any, 0, len(analysis.Sessions))
 	for _, session := range analysis.Sessions {
 		expiry := analysis.Expiry(session)
@@ -70,7 +72,7 @@ func HistoryReport(analysis Analysis, loc *time.Location) string {
 		sessions = append(sessions, entry)
 	}
 	return jsonObject{
-		{"schemaVersion", SchemaVersion},
+		{"schemaVersion", schemaVersion},
 		{"now", isoDate(analysis.Now, loc)},
 		{"sessionLengthSeconds", roundSeconds(analysis.SessionLength.Duration)},
 		{"sessionLengthLearnedFrom", analysis.SessionLength.LearnedFrom},
@@ -80,19 +82,19 @@ func HistoryReport(analysis Analysis, loc *time.Location) string {
 	}.encode()
 }
 
-// ErrorReport is the `--json` output when the logs can't be read or parsed.
-func ErrorReport(message string) string {
+// errorReport is the `--json` output when the logs can't be read or parsed.
+func errorReport(message string) string {
 	return jsonObject{
-		{"schemaVersion", SchemaVersion},
+		{"schemaVersion", schemaVersion},
 		{"state", "error"},
-		{"exitCode", 3},
+		{"exitCode", exitUnreadable},
 		{"error", message},
 	}.encode()
 }
 
 // sessionLengthSource says how sessionLengthSeconds was worked out: the
 // median of sessionLengthLearnedFrom measured sessions, or the 24h default.
-func sessionLengthSource(length SessionLength) string {
+func sessionLengthSource(length core.SessionLength) string {
 	if length.IsFallback() {
 		return "default"
 	}

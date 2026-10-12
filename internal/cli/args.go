@@ -402,7 +402,7 @@ func parseOptions(command *commandSpec, split []element, result *invocation) ([]
 		case "log-dir":
 			result.logDir = value
 		case "warn":
-			warn, ok := core.ParseDuration(value)
+			warn, ok := parseDuration(value)
 			if !ok {
 				return nil, &usageError{message: fmt.Sprintf("The value '%s' is invalid for '%s <%s>'", value, e.name.synopsis(), option.valueName), help: helpLine}
 			}
