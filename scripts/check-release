@@ -1,7 +1,8 @@
 #!/bin/sh
 # Checks the files scripts/build-release wrote, as a user would get them: it
 # unpacks both archives and checks the checksums, that both binaries are
-# universal and signed, the app's Info.plist, and that every version agrees.
+# universal and signed, the app's Info.plist and icon, and that every version
+# agrees.
 #
 #   scripts/check-release               # checks dist/
 #   scripts/check-release DIR           # checks DIR/
@@ -81,6 +82,20 @@ plist_value() {
 }
 [ "$(plist_value CFBundleIdentifier)" = io.github.akramsaouri.gatekeepr ] || fail "unexpected CFBundleIdentifier"
 [ "$(plist_value LSUIElement)" = true ] || fail "LSUIElement isn't set"
+
+echo "==> Icon"
+icon="$app/Contents/Resources/AppIcon.icns"
+[ -f "$icon" ] || fail "$app_zip has no Gatekeepr.app/Contents/Resources/AppIcon.icns"
+[ "$(plist_value CFBundleIconFile)" = AppIcon ] || fail "CFBundleIconFile isn't AppIcon"
+[ "$(plist_value CFBundleIconName)" = AppIcon ] || fail "CFBundleIconName isn't AppIcon"
+iconutil --convert iconset --output "$work/AppIcon.iconset" "$icon"
+for image in 16x16:16 16x16@2x:32 32x32:32 32x32@2x:64 128x128:128 128x128@2x:256 \
+    256x256:256 256x256@2x:512 512x512:512 512x512@2x:1024; do
+    name="icon_${image%:*}"
+    width=$(sips -g pixelWidth "$work/AppIcon.iconset/$name.png" 2>/dev/null | awk '/pixelWidth/ { print $2 }')
+    [ "$width" = "${image#*:}" ] || fail "AppIcon.icns has $name at ${width:-no} px, expected ${image#*:}"
+done
+echo "    AppIcon.icns: every size from 16 to 1024 px"
 
 echo "==> Versions"
 cli_version=$("$cli" --version)

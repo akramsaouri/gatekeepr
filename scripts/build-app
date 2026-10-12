@@ -41,8 +41,13 @@ echo "==> Assembling $app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin_dir/GatekeeprApp" "$app/Contents/MacOS/Gatekeepr"
+# The app icon, rendered from assets/icon/*.svg by scripts/make-icon. It shows
+# in Finder, Login Items and notifications; LSUIElement keeps it out of the Dock.
+cp assets/icon/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 
 # LSUIElement: a menu bar app, with no Dock icon or app menu.
+# CFBundleIconFile: the icon in Resources. CFBundleIconName names the same icon
+# for an asset catalog; there is none, so macOS falls back to CFBundleIconFile.
 # NSUserNotificationAlertStyle: the expiry warning stays on screen until it's
 # dismissed, rather than sliding away as a banner. Users can change it in
 # System Settings › Notifications.
@@ -57,6 +62,10 @@ cat > "$app/Contents/Info.plist" <<EOF
     <string>Gatekeepr</string>
     <key>CFBundleExecutable</key>
     <string>Gatekeepr</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>$bundle_id</string>
     <key>CFBundleInfoDictionaryVersion</key>

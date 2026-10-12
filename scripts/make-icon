@@ -52,16 +52,14 @@ iconutil --convert icns --output "$icns" "$work/AppIcon.iconset"
 
 # Read the .icns back, so the contact sheet shows what ships.
 iconutil --convert iconset --output "$work/check.iconset" "$icns"
-for size in 16 32 128 256 512; do
-    for scale in 1 2; do
-        name="icon_${size}x${size}"
-        [ "$scale" = 1 ] || name="$name@2x"
-        width=$(sips -g pixelWidth "$work/check.iconset/$name.png" 2>/dev/null | awk '/pixelWidth/ { print $2 }')
-        if [ "$width" != $((size * scale)) ]; then
-            echo "make-icon: $icns has $name at ${width:-no} px, expected $((size * scale))" >&2
-            exit 1
-        fi
-    done
+for image in 16x16:16 16x16@2x:32 32x32:32 32x32@2x:64 128x128:128 128x128@2x:256 \
+    256x256:256 256x256@2x:512 512x512:512 512x512@2x:1024; do
+    name="icon_${image%:*}"
+    width=$(sips -g pixelWidth "$work/check.iconset/$name.png" 2>/dev/null | awk '/pixelWidth/ { print $2 }')
+    if [ "$width" != "${image#*:}" ]; then
+        echo "make-icon: $icns has $name at ${width:-no} px, expected ${image#*:}" >&2
+        exit 1
+    fi
 done
 
 echo "==> Writing $sheet"

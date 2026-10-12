@@ -63,7 +63,7 @@ See [Menu bar app](#menu-bar-app) for what it does.
 ### CLI
 
 ```sh
-version=0.2.0
+version=0.2.1
 base=https://github.com/akramsaouri/gatekeepr/releases/download/v$version
 curl -fLO "$base/gatekeepr-$version-macos-universal.tar.gz"
 curl -fLO "$base/SHA256SUMS"
@@ -303,6 +303,16 @@ Core tests run against sanitized excerpts of real logs in
 write small synthetic logs and go through the same parser. Never commit raw
 logs: `.gitignore` blocks `*.log` and `*.log.gz` outside the fixtures directory,
 and CI runs `scripts/sanitize-log --check` over the fixtures.
+
+### App icon
+
+`assets/icon/icon.svg` is the icon at 128 px and up, and `icon-small.svg` a flat
+version for 16 and 32 px that stays legible in Finder lists and notifications.
+`scripts/make-icon` renders both into `assets/icon/AppIcon.icns` and writes
+[`docs/icon-contact-sheet.png`](docs/icon-contact-sheet.png). It needs
+`rsvg-convert` (`brew install librsvg`), so both outputs are committed:
+`scripts/build-app` only copies the `.icns`, and building the app needs nothing
+extra. After changing either SVG, run `scripts/make-icon` and commit the result.
 
 ### Releasing
 
