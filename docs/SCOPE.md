@@ -7,7 +7,7 @@ Claude Code goes through Vend's gateway, which sits behind Appgate. Appgate does
 
 ## What it is
 - **A CLI, and only a CLI.** `gatekeepr` prints the sign-in time, expiry, time left and how the session length was learned; `--short` prints one line for statuslines; `--json` prints a versioned, documented object ([JSON.md](JSON.md)); `history` lists past sessions. Exit codes: `0` ok · `1` within the warn window · `2` expired / not signed in · `3` logs unreadable or unparseable · `64` wrong command line.
-- **The menu bar app was removed in v0.3.0** (decided 2026-10-12: not needed). v0.2.x releases still have it, and stay up: [v0.2.1](https://github.com/akramsaouri/gatekeepr/releases/tag/v0.2.1) is the last one with `Gatekeepr.app`.
+- **The menu bar app was removed in v0.3.0** (decided 2026-10-12: not needed). The v0.2.x releases and tags that shipped it were deleted the same day; the code is only in git history.
 - **Written in Go since v0.3.0**, standard library only. v0.1–v0.2 were Swift. The port was checked case by case against the Swift CLI's output (see [Parity with the Swift version](#parity-with-the-swift-version)).
 - **Consumers.** A Lucidos plugin will read `gatekeepr --json` later; that's a separate project. Statusline scripts use `--short` or `--json`. `--json` is the contract for all of them: any schema change bumps `schemaVersion`.
 

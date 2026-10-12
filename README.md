@@ -13,10 +13,8 @@ then everything behind the VPN stops working. gatekeepr reads the driver logs
 in `/var/log/appgate`, which any user can read, and tells you when that will
 happen. It needs no root and makes no network calls.
 
-gatekeepr is a single command-line tool. Up to v0.2.1 there was also a menu
-bar app; it was removed in v0.3.0, and
-[v0.2.1](https://github.com/akramsaouri/gatekeepr/releases/tag/v0.2.1) is the
-last release that has it. See [docs/SCOPE.md](docs/SCOPE.md).
+gatekeepr is a single command-line tool. Early versions also had a menu bar
+app; it was removed in v0.3.0. See [docs/SCOPE.md](docs/SCOPE.md).
 
 ## Install
 
